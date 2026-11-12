@@ -1,0 +1,100 @@
+WAREHOUSE HUB (Warehouse + Receiving in one app) - HOW TO SET UP
+================================================================
+
+What's in this folder
+---------------------
+index.html             The whole app: home page, Warehouse, Receiving, Admin.
+manifest.webmanifest   \
+sw.js                   |  Make it installable as an app ("Install app" /
+icon-192.png            |  "Add to Home Screen"). Only used when the app is
+icon-512.png            |  opened from its web address.
+apple-touch-icon.png   /
+HOW TO SET UP.txt      This file (don't upload it).
+
+It REPLACES both old apps (Warehouse-Locator.html and Receiving-Lookup.html).
+Same data files, same look. The old apps keep working while you switch over.
+
+
+STEP 1 - ONE SHARED TOP FOLDER (proposed layout)
+------------------------------------------------
+Both parts now live under ONE folder, so one OneDrive share and one sign-in
+covers everything. Proposed layout in your WORK OneDrive:
+
+  Chandler App                    <- the one folder you share / pick
+  ├─ warehouse-data.json          (Warehouse: all spots + change history)
+  ├─ backups\                     (Warehouse daily copies, PC folder mode)
+  └─ Receiving                    <- your existing Receiving folder, moved in here
+      ├─ receiving-data.json      (locations + notes for packing lists)
+      ├─ Incoming\                (scanner drops new scans here; "📥 Scans" files them)
+      ├─ Dave Collins\ ...
+      ├─ Maria Lopez\ ...
+      └─ 2025\ ...
+
+You move the folders yourself (the app never moves or renames your files):
+  a) In OneDrive, make a new folder "Chandler App".
+  b) Drag your existing "Receiving" folder into it. Nothing inside changes,
+     so all saved locations and notes still line up.
+  c) Open the app, pick "Chandler App", tap Warehouse. It offers:
+       - "Bring in an existing warehouse-data.json": pick the file the
+         Warehouse app uses now. It is COPIED in; the original is untouched.
+       - or "Start with the 176 locations" for a fresh start.
+
+Other layouts also work:
+  - If you pick the old Receiving folder itself, the app uses it as
+    Receiving and keeps warehouse-data.json in that same folder.
+  - If "Chandler App" has no Receiving folder yet, the app makes one the
+    first time someone logs a delivery.
+
+
+STEP 2 - PUT IT ON THE WEB ADDRESS (GitHub)
+-------------------------------------------
+Upload these 6 files to the Chandler-App repository on GitHub, replacing
+the old ones with the same names:
+  index.html, manifest.webmanifest, sw.js,
+  icon-192.png, icon-512.png, apple-touch-icon.png
+(On github.com: open the repository > Add file > Upload files > drag the 6
+files in > Commit changes.) After a minute, https://archy355.github.io/Chandler-App/
+opens Warehouse Hub instead of Receiving Lookup. Phones that installed the
+old app pick up the new one the next time they open it (maybe twice).
+
+
+STEP 3 - MICROSOFT SIGN-IN (phones)  [still waiting on the app registration]
+--------------------------------------------------------------------------
+Same as in "Recieving app\HOW TO SET UP PHONE.txt": do the Entra app
+registration (SPA redirect = https://archy355.github.io/Chandler-App/,
+permissions Files.ReadWrite.All + offline_access), then send Claude the
+Client ID and Tenant ID to fill in the CONFIG block at the top of index.html.
+Also send the link to the new "Chandler App" folder (or, after your first
+sign-in, the IDs the Admin page shows) so everyone opens the right folder.
+
+Note: right now CONFIG.folderLink still points at the old Receiving folder.
+That works, but then warehouse-data.json would be kept inside Receiving.
+Update it once "Chandler App" exists.
+
+Sharing: share "Chandler App" (not just Receiving) with people. The Admin
+page (owner only) adds/removes people, including personal emails (guests).
+
+
+ON A WORK PC WITHOUT SIGN-IN (PC folder mode)
+---------------------------------------------
+Open index.html (or the web address) in Edge, click "Choose folder", pick
+the synced "Chandler App" folder, and choose "Allow on every visit".
+
+
+GOOD TO KNOW
+------------
+- Home page: one search box searches warehouse spots AND packing lists.
+  Tap a result to jump straight to it. "‹ Home" (or the phone's Back button)
+  returns to the home page.
+- Scanner inbox: point the Brother software (save as PDF) at
+  Chandler App\Receiving\Incoming. In Receiving, "📥 Scans" / "Review scans"
+  lists them; "File it" names the scan and moves it into the right PM folder,
+  "Discard" moves it to Incoming\Discarded (never deleted). The Scans panel
+  can create the Incoming folder for you.
+- Two people saving at the same moment: with Microsoft sign-in, both saves
+  are kept (the app re-reads and retries). In PC folder mode, OneDrive sync
+  can still make a copy like "warehouse-data-COMPUTERNAME.json".
+- Mistakes: Warehouse > History shows every change. PC folder mode keeps a
+  daily copy in backups\; on OneDrive use Version history.
+- Not tested yet with REAL Microsoft sign-in (only with a simulated
+  OneDrive), same as the Receiving app.
