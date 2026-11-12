@@ -8,7 +8,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="theme-color" content="#2f5d8a">
+<meta name="theme-color" content="#7c2128">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Receiving">
@@ -18,11 +18,14 @@
    It reads the packing-list folders you already keep (one folder per project manager,
    files named "Job name - Shipper - Date received") and keeps extra info
    (locations, notes) in receiving-data.json in that same top folder. */
+/* Colors: company maroon (from the CA logo) + charcoal grey. */
 :root{
-  --bg:#eef0f2; --surface:#ffffff; --sunk:#e3e6ea; --line:#cfd4da; --line2:#dfe3e7;
-  --fg:#1c2329; --muted:#5d6873; --faint:#9aa6b2;
-  --accent:#d9480f; --accent-ink:#fff; --accent-soft:#fde3d4;
-  --steel:#2f5d8a; --steel-ink:#fff; --steel-soft:#dbe6f1;
+  --brand:#7c2128;
+  --bg:#efefef; --surface:#ffffff; --sunk:#e6e6e6; --line:#d2d2d2; --line2:#e2e2e2;
+  --fg:#222222; --muted:#5f6368; --faint:#9a9a9a;
+  --accent:#7c2128; --accent-ink:#fff; --accent-soft:#f4e4e5;
+  --steel:#4a4d52; --steel-ink:#fff; --steel-soft:#e8e8e9;
+  --mark:#ffe066; --mark-ink:inherit;
   --danger:#c92a2a; --warn-bg:#fff3bf; --warn-fg:#5c4400;
   --f-display:"Bahnschrift SemiBold Condensed","Bahnschrift","Arial Narrow",system-ui,sans-serif;
   --f-body:"Segoe UI",system-ui,-apple-system,sans-serif;
@@ -30,10 +33,11 @@
   color-scheme:light;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#14181c; --surface:#1d2328; --sunk:#262d33; --line:#36404a; --line2:#2b333a;
-  --fg:#e6eaee; --muted:#9aa6b2; --faint:#6b7782;
-  --accent:#f76b2a; --accent-ink:#1a0d05; --accent-soft:#4a2414;
-  --steel:#3f75ab; --steel-ink:#fff; --steel-soft:#1f3347;
+  --bg:#161718; --surface:#202124; --sunk:#2a2b2e; --line:#3b3d41; --line2:#2e3033;
+  --fg:#ececec; --muted:#a3a7ac; --faint:#6f7378;
+  --accent:#b5373f; --accent-ink:#fff; --accent-soft:#3e1a1d;
+  --steel:#5d6168; --steel-ink:#fff; --steel-soft:#2e3034;
+  --mark:#5a2328; --mark-ink:#fff;
   --warn-bg:#3d3310; --warn-fg:#ffe08a; color-scheme:dark}}
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -43,7 +47,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 /* top bar */
-.top{background:#2f5d8a;color:#fff;display:flex;align-items:center;gap:6px 14px;padding:10px 16px;flex-wrap:wrap}
+.top{background:var(--brand);color:#fff;display:flex;align-items:center;gap:6px 14px;padding:10px 16px;flex-wrap:wrap}
 .brand{font:700 24px/1 var(--f-display);text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}
 .spacer{flex:1}
 .status{font-size:13px;display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.18);padding:5px 10px;border-radius:14px;max-width:380px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -51,7 +55,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .dot.sample{background:#ffd43b}.dot.err{background:#ff8787}.dot.busy{background:#74c0fc}
 .tbtn{background:rgba(255,255,255,.14);border:0;color:#fff;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap}
 .tbtn:hover{background:rgba(255,255,255,.24)}
-.tbtn.inst{background:#d9480f}.tbtn.inst:hover{background:#e8590c}
+.tbtn.inst{background:#4a4d52}.tbtn.inst:hover{background:#5d6168}
 .iostip{display:flex;gap:10px;align-items:center;background:var(--steel-soft);border-radius:6px;padding:10px 12px;margin:0 0 16px;font-size:14px}
 .iostip button{margin-left:auto;background:none;border:0;font-size:18px;cursor:pointer;color:var(--muted)}
 .banner{background:var(--warn-bg);color:var(--warn-fg);padding:7px 16px;font-size:14px}
@@ -124,7 +128,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .loc{font:600 12.5px/1 var(--f-mono);background:var(--steel-soft);color:var(--fg);padding:5px 7px;border-radius:3px;white-space:nowrap}
 .loc.none{background:transparent;color:var(--faint);font:italic 12px/1 var(--f-body);padding:5px 0}
 .odd{font-size:11px;font-weight:600;color:var(--warn-fg);background:var(--warn-bg);padding:1px 6px;border-radius:3px;margin-left:6px;vertical-align:1px}
-mark{background:#ffe066;color:inherit;border-radius:2px;padding:0 1px}
+mark{background:var(--mark);color:var(--mark-ink);border-radius:2px;padding:0 1px}
 .none{background:var(--surface);border:1px solid var(--line2);border-radius:6px;padding:30px;text-align:center;color:var(--muted)}
 .jobhead{background:var(--sunk);padding:7px 12px;font:700 15px/1.2 var(--f-display);text-transform:uppercase;letter-spacing:.03em;display:flex;gap:8px;align-items:baseline}
 .jobhead small{font:12px var(--f-body);color:var(--muted);text-transform:none;letter-spacing:0}
@@ -171,8 +175,20 @@ mark{background:#ffe066;color:inherit;border-radius:2px;padding:0 1px}
 .picked .meta{flex:1;overflow-wrap:anywhere;font-size:13px;color:var(--fg)}
 .minidoc{height:46vh;min-height:280px}
 .saveas{font:600 13px/1.4 var(--f-mono);background:var(--steel-soft);padding:8px 10px;border-radius:4px;overflow-wrap:anywhere}
-.dropall{position:fixed;inset:0;background:rgba(47,93,138,.82);color:#fff;display:flex;align-items:center;justify-content:center;font:700 34px/1.1 var(--f-display);text-transform:uppercase;z-index:60;pointer-events:none;text-align:center;padding:20px}
+.dropall{position:fixed;inset:0;background:rgba(124,33,40,.85);color:#fff;display:flex;align-items:center;justify-content:center;font:700 34px/1.1 var(--f-display);text-transform:uppercase;z-index:60;pointer-events:none;text-align:center;padding:20px}
 
+/* admin: people with access */
+.card2{border:1px solid var(--line);border-radius:6px;padding:12px;display:flex;flex-direction:column;gap:10px;background:var(--sunk)}
+.chk{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);align-self:end;min-height:38px}
+.plist{display:flex;flex-direction:column;gap:1px;background:var(--line2);border:1px solid var(--line2);border-radius:6px;overflow:hidden}
+.prow{background:var(--surface);display:flex;gap:10px;align-items:center;padding:10px 12px}
+.prow .who{flex:1;min-width:0}
+.prow .who b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prow .who span{font-size:12.5px;color:var(--muted);overflow-wrap:anywhere}
+.role{font:600 11px/1 var(--f-body);text-transform:uppercase;letter-spacing:.05em;padding:4px 7px;border-radius:3px;background:var(--steel-soft);white-space:nowrap}
+.role.write{background:var(--accent);color:var(--accent-ink)}
+.role.owner{background:var(--steel);color:var(--steel-ink)}
+.code{display:block;margin-top:6px;white-space:pre-wrap;overflow-wrap:anywhere;padding:8px}
 /* OneDrive folder picker */
 .crumbs{display:flex;flex-wrap:wrap;gap:4px;align-items:center;font-size:14px;margin:0 0 8px}
 .crumbs button{background:none;border:0;color:var(--steel);font-weight:600;cursor:pointer;padding:2px 0}
@@ -227,6 +243,7 @@ mark{background:#ffe066;color:inherit;border-radius:2px;padding:0 1px}
   <div class="spacer"></div>
   <div class="status" id="status" hidden><span class="dot" id="sdot"></span><span id="stext"></span></div>
   <button class="tbtn inst" id="bInstall" hidden title="Install Receiving Lookup as an app on this device">⬇ Install app</button>
+  <button class="tbtn" id="bAdmin" hidden title="Add or remove people who can use the app">⚙ Admin</button>
   <button class="tbtn" id="bUser" hidden title="Change the name saved with your changes"></button>
   <button class="tbtn" id="bRescan" hidden title="Look through the folders again for new packing lists">↻ Refresh</button>
   <button class="tbtn" id="bExport" hidden title="Save a CSV list that opens in Excel">Export to Excel</button>
@@ -276,7 +293,7 @@ mark{background:#ffe066;color:inherit;border-radius:2px;padding:0 1px}
     <div class="crumbs" id="gCrumbs"></div>
     <div class="glist" id="gList"></div>
     <div class="row" style="margin-top:12px"><button class="btn pri big" id="gUse">Use this folder</button><button class="btn" id="gSignOut">Sign out</button></div>
-    <details style="margin-top:16px"><summary class="meta" style="cursor:pointer;font-size:14px">Folder shared with you by someone else? Paste its link instead</summary>
+    <details id="gLinkBox" style="margin-top:16px"><summary class="meta" style="cursor:pointer;font-size:14px">Folder shared with you by someone else? Paste its link instead</summary>
       <p class="meta" style="margin:8px 0">In OneDrive, open the folder, click <b>Share</b> &gt; <b>Copy link</b>, and paste it here. (Or open it in OneDrive on the web and click <b>Add shortcut to My files</b>; then it shows in the list above.)</p>
       <div class="row"><input class="inp" id="gLink" placeholder="https://…sharepoint.com/…" style="flex:1;min-width:0"><button class="btn" id="gLinkGo">Use link</button></div>
     </details>
@@ -325,6 +342,23 @@ mark{background:#ffe066;color:inherit;border-radius:2px;padding:0 1px}
       </form>
     </div>
 
+    <!-- ADMIN: WHO CAN USE THE APP (owner only) -->
+    <div class="pbody" id="pAdmin" hidden>
+      <p class="meta" style="margin:0;font-size:13px">People below can sign in and see the packing lists. This is the sharing list of the <b id="aFolder">Receiving</b> folder in your OneDrive, so changes here also show in OneDrive.</p>
+      <form id="aForm" class="card2" autocomplete="off">
+        <div class="f"><label for="aEmail">Add a person (any email, work or personal)</label><input id="aEmail" type="email" required placeholder="name@gmail.com"></div>
+        <div class="two">
+          <div class="f"><label for="aRole">They can</label><select id="aRole"><option value="write">Look up + log deliveries + save locations</option><option value="read">Only look things up</option></select></div>
+          <label class="chk"><input type="checkbox" id="aSend" checked> Email them an invitation with the app's address</label>
+        </div>
+        <div class="row" style="justify-content:flex-end"><button type="submit" class="btn pri" id="aAdd">Add person</button></div>
+      </form>
+      <div class="note warn" id="aLink" hidden></div>
+      <div class="lbl" style="margin-top:4px">People with access</div>
+      <div class="plist" id="aList"><div class="none">Loading…</div></div>
+      <div class="note" id="aSetup" hidden></div>
+    </div>
+
     <!-- LOG A NEW DELIVERY -->
     <form class="pbody" id="pNew" autocomplete="off" hidden>
       <button type="button" class="btn pri big" id="nCamBtn" hidden>📷 Take a photo of the packing list</button>
@@ -359,14 +393,21 @@ mark{background:#ffe066;color:inherit;border-radius:2px;padding:0 1px}
 /* ======================================================================
    SETTINGS FOR MICROSOFT SIGN-IN (phone + PC). See "HOW TO SET UP PHONE.txt".
    clientId    : "Application (client) ID" from the app registration.
-   tenant      : "Directory (tenant) ID" from the same page, or leave "organizations".
-   folderLink  : optional link to the Receiving folder so nobody has to pick it.
-                 Leave blank if this file is hosted publicly.
+   tenant      : "Directory (tenant) ID" from the same page. MUST be filled in if
+                 employees sign in as guests with personal emails.
+   folderLink  : link to the Receiving folder so nobody has to pick it.
+                 Only use a link shared with "Specific people" (the link alone
+                 then doesn't let anyone in), never an "Anyone" link.
+   folder      : the same folder by ID (no email in it). The Admin tab shows
+                 these values after the owner's first sign-in; once filled in,
+                 folderLink can be emptied.
    ====================================================================== */
 const CONFIG={
+  appUrl:"https://archy355.github.io/Chandler-App/",   // the app's web address (used in invitations)
   clientId:"",
   tenant:"organizations",
-  folderLink:""
+  folderLink:"https://chandlerarchitectural-my.sharepoint.com/:f:/g/personal/karchambault_cap-inc_net/IgD5SdzO70KXS4JYdX0qeSL2AT_nVrnmkuKAkat7P18ZNTU?e=bl62aC",
+  folder:{driveId:"",id:"",name:"Receiving"}
 };
 (function(){
 "use strict";
@@ -653,9 +694,9 @@ async function gEnsureFolder(name){
   catch(e){if(e.status!==409)throw e;it=await gjson(itemPath(S.root,name));}
   return (S.gFolders[k]={driveId:S.root.driveId,id:it.id,name:it.name});
 }
+const encLink=link=>"u!"+btoa(unescape(encodeURIComponent(link.trim()))).replace(/=+$/,"").replace(/\//g,"_").replace(/\+/g,"-");
 async function gResolveLink(link){
-  const enc="u!"+btoa(unescape(encodeURIComponent(link.trim()))).replace(/=+$/,"").replace(/\//g,"_").replace(/\+/g,"-");
-  const it=await gjson("/shares/"+enc+"/driveItem?$select=id,name,folder,parentReference");
+  const it=await gjson("/shares/"+encLink(link)+"/driveItem?$select=id,name,folder,parentReference");
   if(!it.folder)throw new Error("That link is to a file, not a folder.");
   return {driveId:it.parentReference.driveId,id:it.id,name:it.name};
 }
@@ -663,11 +704,17 @@ async function gResolveLink(link){
 /* ---------- after sign-in ---------- */
 async function startCloud(){
   await getToken();
-  if(!lsGet("rl-user")||!lsGet("rl-login")){
-    try{const me=await gjson("/me?$select=displayName,userPrincipalName");if(me.userPrincipalName)lsSet("rl-login",me.userPrincipalName);if(!lsGet("rl-user")&&me.displayName){lsSet("rl-user",me.displayName);setUserBtn();}}catch(e){}
-  }
+  try{const me=await gjson("/me?$select=id,displayName,userPrincipalName,mail");S.me=me;
+    if(me.userPrincipalName)lsSet("rl-login",me.userPrincipalName);if(!lsGet("rl-user")&&me.displayName){lsSet("rl-user",me.displayName);setUserBtn();}}
+  catch(e){if(e instanceof NeedSignIn)throw e;}
   let root=null;try{root=JSON.parse(lsGet("rl-root")||"null")}catch(e){}
-  if(!root&&CONFIG.folderLink){try{root=await gResolveLink(CONFIG.folderLink);}catch(e){console.warn(e);}}
+  if(!root&&CONFIG.folder&&CONFIG.folder.id)root={driveId:CONFIG.folder.driveId,id:CONFIG.folder.id,name:CONFIG.folder.name||"Receiving"};
+  const link=lsGet("rl-folderlink")||CONFIG.folderLink;
+  if(!root&&link){
+    try{root=await gResolveLink(link);}
+    catch(e){if(e instanceof NeedSignIn)throw e;console.warn(e);
+      $("#gErr").textContent="Couldn't open the shared Receiving folder ("+e.message+"). Ask whoever shared it to make sure it's shared with the email you signed in with.";$("#gErr").hidden=false;}
+  }
   if(root){try{await openCloudRoot(root);return;}catch(e){if(e instanceof NeedSignIn)throw e;$("#gErr").textContent="Couldn't open "+root.name+": "+e.message;$("#gErr").hidden=false;}}
   await showCloudPicker();
 }
@@ -675,14 +722,112 @@ async function openCloudRoot(root){
   S.mode="cloud";S.root=root;S.gFolders={};S.files=[];
   const r=await gReadData();S.data=r.data;S.etag=r.etag;
   lsSet("rl-root",JSON.stringify(root));
-  $("#vCloud").hidden=true;showApp();await scan();
+  $("#vCloud").hidden=true;showApp();checkAdmin();await scan();
+}
+
+/* ---------- ADMIN: only the folder's owner sees this ---------- */
+async function checkAdmin(){
+  S.isAdmin=false;$("#bAdmin").hidden=true;
+  try{
+    S.me=await gjson("/me?$select=id,displayName,userPrincipalName,mail");   // always ask who is signed in
+    const d=await gjson("/drives/"+S.root.driveId+"?$select=id,owner");
+    const o=d.owner&&(d.owner.user||d.owner.group)||{};
+    S.isAdmin=!!o.id&&o.id===S.me.id;
+  }catch(e){console.warn("admin check",e);}
+  $("#bAdmin").hidden=!S.isAdmin;
+}
+const appUrl=()=>CONFIG.appUrl||redirectUri();
+function emailOf(u){if(!u)return"";if(u.email)return u.email;const l=u.loginName||"";return l.includes("|")?l.split("|").pop():"";}
+async function loadPeople(){
+  const perms=[];let url=itemPath(S.root)+"/permissions";
+  while(url){const j=await gjson(url);perms.push.apply(perms,j.value);url=j["@odata.nextLink"]||null;}
+  const people=new Map(),links=[];
+  const add=(email,name,role,ref,inherited)=>{
+    const k=key(email||name);if(!k)return;
+    const p=people.get(k)||{email:email||"",name:name||"",role:"read",refs:[],inherited:true};
+    const rank={read:0,write:1,owner:2};if(rank[role]>rank[p.role])p.role=role;
+    if(!p.name&&name)p.name=name;if(!p.email&&email)p.email=email;
+    p.refs.push(ref);p.inherited=p.inherited&&inherited;people.set(k,p);
+  };
+  for(const p of perms){
+    const role=(p.roles||[]).includes("owner")?"owner":(p.roles||[]).includes("write")?"write":"read",inh=!!p.inheritedFrom;
+    if(p.link){
+      const ids=p.grantedToIdentitiesV2||p.grantedToIdentities||[];
+      links.push({id:p.id,scope:p.link.scope,type:p.link.type,url:p.link.webUrl,n:ids.length});
+      for(const g of ids){const u=g.user||g.siteUser||{};add(emailOf(u),u.displayName,role,{kind:"link",id:p.id},inh);}
+    }else{
+      const g=p.grantedToV2||p.grantedTo||{},u=g.user||g.siteUser||{};
+      add(emailOf(u)||(p.invitation&&p.invitation.email)||"",u.displayName,role,{kind:"direct",id:p.id},inh);
+    }
+  }
+  return {people:[...people.values()].sort((a,b)=>(b.role==="owner")-(a.role==="owner")||natural(a.name||a.email,b.name||b.email)),links};
+}
+async function openAdmin(){
+  if(!S.isAdmin)return;
+  S.panel="admin";S.sel=null;$("#panel").hidden=false;$("#pView").hidden=true;$("#pNew").hidden=true;$("#pAdmin").hidden=false;
+  $("#pTitle").textContent="Who can use the app";$("#aFolder").textContent=S.root.name;render();
+  // one-time: folder IDs to build in (so the app needs no link with an email in it)
+  const s=$("#aSetup");
+  if(!(CONFIG.folder&&CONFIG.folder.id)){s.hidden=false;s.innerHTML='<b>One-time step:</b> send this to Claude so the folder is built into the app by ID (then the link with your email can be removed from the code):<code class="code" id="aIds">'+esc(JSON.stringify({driveId:S.root.driveId,id:S.root.id,name:S.root.name}))+'</code><button type="button" class="btn sm" id="aCopy" style="margin-top:6px">Copy</button>';}
+  else s.hidden=true;
+  await refreshPeople();
+}
+async function refreshPeople(){
+  const L=$("#aList");L.innerHTML='<div class="none">Loading…</div>';
+  try{
+    const {people,links}=await loadPeople();S.adminPeople=people;
+    const lab={owner:"Owner",write:"Can edit",read:"View only"};
+    L.innerHTML=people.map((p,i)=>'<div class="prow"><span class="who"><b>'+esc(p.name||p.email)+'</b><span>'+esc(p.name&&p.email?p.email:"")+(p.inherited&&p.role!=="owner"?" · from a parent folder (change it in OneDrive)":"")+'</span></span><span class="role '+p.role+'">'+lab[p.role]+"</span>"
+      +(p.role==="owner"||p.inherited?"":'<button type="button" class="btn sm" data-rm="'+i+'">Remove</button>')+"</div>").join("")||'<div class="none">Nobody else yet. Add someone above.</div>';
+    // warn about risky links on the folder
+    const w=[];
+    if(links.some(l=>l.scope==="anonymous"))w.push("<b>Warning:</b> this folder has an <b>“Anyone with the link”</b> link, so anyone who gets that link can open the packing lists without signing in. Remove it in OneDrive (folder > Manage access > Links).");
+    if(links.some(l=>l.scope==="organization"))w.push("This folder has a “People in your company” link. That's fine for coworkers, but guests with personal emails can't use it, so they're added one by one here instead.");
+    $("#aLink").innerHTML=w.join("<br><br>");$("#aLink").hidden=!w.length;
+  }catch(e){if(!authLost(e))L.innerHTML='<div class="none">Couldn\'t load the sharing list: '+esc(e.message)+"</div>";}
+}
+async function addPerson(e){
+  e.preventDefault();
+  const email=norm($("#aEmail").value).toLowerCase(),role=$("#aRole").value,send=$("#aSend").checked;
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){toast("That doesn't look like an email address.");return;}
+  const btn=$("#aAdd");btn.disabled=true;
+  try{
+    const msg="You've been given access to the Chandler Receiving app. On your phone or computer, open "+appUrl()+" , tap Sign in with Microsoft, and sign in with this email address ("+email+"). Tip: add it to your home screen so it opens like an app.";
+    await gjson(itemPath(S.root)+"/invite",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({recipients:[{email}],message:msg,requireSignIn:true,sendInvitation:send,roles:[role]})});
+    // also let them use the built-in folder link
+    if(CONFIG.folderLink){try{await gjson("/shares/"+encLink(CONFIG.folderLink)+"/permission/grant",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({recipients:[{email}],roles:[role]})});}catch(x){console.warn("link grant",x);}}
+    $("#aEmail").value="";toast("Added "+email+(send?" · invitation sent":""),4500);
+    await refreshPeople();
+  }catch(err){if(!authLost(err))toast("Couldn't add "+email+": "+err.message,7000);}
+  finally{btn.disabled=false;}
+}
+async function removePerson(i){
+  const p=S.adminPeople&&S.adminPeople[+i];if(!p)return;
+  if(!confirm("Remove "+(p.name||p.email)+"?\n\nThey won't be able to open the packing lists any more. You can add them back later."))return;
+  try{
+    for(const r of p.refs){
+      if(r.kind==="direct")await gjson(itemPath(S.root)+"/permissions/"+r.id,{method:"DELETE"});
+      else await gjson(itemPath(S.root)+"/permissions/"+r.id+"/revokeGrants",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({grantees:[{email:p.email}]})});
+    }
+    toast("Removed "+(p.name||p.email));
+  }catch(e){if(!authLost(e))toast("Couldn't remove everything: "+e.message+". Check in OneDrive > Manage access.",8000);}
+  await refreshPeople();
 }
 /* folder picker: starts in My files */
 const G={stack:[]};
 async function showCloudPicker(){
   $("#vConnect").hidden=true;$("#work").hidden=true;$("#vCloud").hidden=false;
   ["#bUser","#bExport","#bFolder","#bRescan","#bSignOut"].forEach(s=>$(s).hidden=true);$("#status").hidden=true;
-  if(!G.stack.length){const r=await gjson("/me/drive/root?$select=id,name,parentReference");G.stack=[{driveId:r.parentReference.driveId,id:r.id,name:"My files"}];}
+  if(!G.stack.length&&!G.noDrive){
+    try{const r=await gjson("/me/drive/root?$select=id,name,parentReference");G.stack=[{driveId:r.parentReference.driveId,id:r.id,name:"My files"}];}
+    catch(e){if(e instanceof NeedSignIn)throw e;G.noDrive=true;}   // guests (personal email) have no OneDrive of their own
+  }
+  if(G.noDrive){
+    $("#gCrumbs").innerHTML="";$("#gUse").hidden=true;$("#gLinkBox").open=true;
+    $("#gList").innerHTML='<div class="none">You\'re signed in as a guest, so there\'s no "My files" to browse. That\'s normal.<br><br><b>Paste the link to the shared folder below</b>: it\'s in the email you got when the folder was shared with you.</div>';
+    return;
+  }
+  $("#gUse").hidden=false;
   await renderPicker();
 }
 async function renderPicker(){
@@ -952,7 +1097,7 @@ function showDoc(box,blob,name){
 }
 async function openFile(id){
   const f=fileById(id);if(!f)return;
-  S.panel="view";S.sel=id;$("#panel").hidden=false;$("#pView").hidden=false;$("#pNew").hidden=true;
+  S.panel="view";S.sel=id;$("#panel").hidden=false;$("#pView").hidden=false;$("#pNew").hidden=true;$("#pAdmin").hidden=true;
   $("#pTitle").textContent=f.job||f.name;
   $("#vPath").textContent=(rootName()?rootName()+"\\":"")+f.path.concat(f.name).join("\\");
   $("#vDet").innerHTML=[["Shipper",f.shipper||"—"],["Date received",f.date?fmtDate(f.date):(f.dateRaw||"—")],["Project manager",f.pm]].map(x=>'<div><div class="k">'+x[0]+'</div><div class="v">'+esc(x[1])+"</div></div>").join("");
@@ -1013,7 +1158,7 @@ function wireChips(w){
 
 /* ---------- log a new delivery ---------- */
 function openNew(file){
-  S.panel="new";S.sel=null;$("#panel").hidden=false;$("#pView").hidden=true;$("#pNew").hidden=false;
+  S.panel="new";S.sel=null;$("#panel").hidden=false;$("#pView").hidden=true;$("#pNew").hidden=false;$("#pAdmin").hidden=true;
   $("#pTitle").textContent="Log a delivery";setDocURL("view",null);$("#doc").innerHTML="";
   S.nLocs=[];renderChipsIn("n");
   ["#nJob","#nPM","#nShip","#nNotes","#nLocIn"].forEach(s=>$(s).value="");
@@ -1162,6 +1307,10 @@ $("#bPick").onclick=pickFolder;
 $("#bSample").onclick=()=>{saveName();const s=sampleFiles();S.mode="sample";S.files=s.files;S.data=s.data;showApp();afterFilesChanged();};
 $("#bFolder").onclick=()=>{if(S.mode==="sample"){location.reload();return;}if(S.mode==="cloud"){closePanel();showCloudPicker().catch(e=>{if(!authLost(e))toast(e.message,6000);});return;}pickFolder();};
 $("#bSignIn").onclick=()=>{saveName();signIn();};
+$("#bAdmin").onclick=()=>{openAdmin().catch(e=>{if(!authLost(e))toast(e.message,6000);});};
+$("#aForm").addEventListener("submit",addPerson);
+$("#aList").addEventListener("click",e=>{const b=e.target.closest("[data-rm]");if(b)removePerson(b.dataset.rm);});
+$("#aSetup").addEventListener("click",e=>{if(e.target.id==="aCopy"){const t=$("#aIds").textContent;(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast("Copied")).catch(()=>toast("Select the text and copy it"));}});
 $("#bSignOut").onclick=()=>{if(confirm("Sign out on this device?"))signOut();};
 $("#gSignOut").onclick=signOut;
 $("#gCrumbs").addEventListener("click",e=>{const b=e.target.closest("[data-i]");if(b){G.stack.length=+b.dataset.i+1;renderPicker();}});
@@ -1241,6 +1390,9 @@ window.ReceivingLookup={openFolder,openCloudRoot,showCloudPicker,_setTokens:t=>{
   const touch=window.matchMedia&&matchMedia("(pointer:coarse)").matches;
   if(touch){$("#nCamBtn").hidden=false;$("#nDropTitle").textContent="Or choose a file";$("#nDropSub").textContent="a PDF or picture already on the phone";}
   const canFolder=!!window.showDirectoryPicker;
+  // Private setup link: app-address#folder=<OneDrive share link>. The part after # never goes to the web server.
+  const hm=/[#&]folder=([^&]+)/.exec(location.hash);
+  if(hm){try{lsSet("rl-folderlink",decodeURIComponent(hm[1]));lsDel("rl-root");}catch(e){}history.replaceState(null,"",location.pathname+location.search);}
   // Microsoft sign-in (phone + PC)
   if(cloudReady()){
     $("#bSignIn").hidden=false;$("#cloudIntro").hidden=false;

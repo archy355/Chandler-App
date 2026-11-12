@@ -1,7 +1,7 @@
 /* Receiving Lookup service worker: lets the app install and open quickly.
    Always tries the network first, so updates show up on the next open.
    Microsoft sign-in, OneDrive and the PDF viewer are never cached. */
-const CACHE = "receiving-v1";
+const CACHE = "receiving-v2";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
 
 self.addEventListener("install", e => {
