@@ -739,6 +739,7 @@ async function checkAdmin(){
 const appUrl=()=>CONFIG.appUrl||redirectUri();
 function emailOf(u){if(!u)return"";if(u.email)return u.email;const l=u.loginName||"";return l.includes("|")?l.split("|").pop():"";}
 async function loadPeople(){
+  if(S.mode==="sample")return {people:S.samplePeople.slice(),links:[]};
   const perms=[];let url=itemPath(S.root)+"/permissions";
   while(url){const j=await gjson(url);perms.push.apply(perms,j.value);url=j["@odata.nextLink"]||null;}
   const people=new Map(),links=[];
@@ -768,7 +769,8 @@ async function openAdmin(){
   $("#pTitle").textContent="Who can use the app";$("#aFolder").textContent=S.root.name;render();
   // one-time: folder IDs to build in (so the app needs no link with an email in it)
   const s=$("#aSetup");
-  if(!(CONFIG.folder&&CONFIG.folder.id)){s.hidden=false;s.innerHTML='<b>One-time step:</b> send this to Claude so the folder is built into the app by ID (then the link with your email can be removed from the code):<code class="code" id="aIds">'+esc(JSON.stringify({driveId:S.root.driveId,id:S.root.id,name:S.root.name}))+'</code><button type="button" class="btn sm" id="aCopy" style="margin-top:6px">Copy</button>';}
+  if(S.mode==="sample"){s.hidden=false;s.innerHTML="<b>Sample mode:</b> these people are made up. Adding and removing works so you can try it, but nobody is emailed and nothing changes in OneDrive.";}
+  else if(!(CONFIG.folder&&CONFIG.folder.id)){s.hidden=false;s.innerHTML='<b>One-time step:</b> send this to Claude so the folder is built into the app by ID (then the link with your email can be removed from the code):<code class="code" id="aIds">'+esc(JSON.stringify({driveId:S.root.driveId,id:S.root.id,name:S.root.name}))+'</code><button type="button" class="btn sm" id="aCopy" style="margin-top:6px">Copy</button>';}
   else s.hidden=true;
   await refreshPeople();
 }
@@ -790,6 +792,10 @@ async function addPerson(e){
   e.preventDefault();
   const email=norm($("#aEmail").value).toLowerCase(),role=$("#aRole").value,send=$("#aSend").checked;
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){toast("That doesn't look like an email address.");return;}
+  if(S.mode==="sample"){
+    if(!S.samplePeople.some(p=>p.email===email))S.samplePeople.push({email,name:"",role,refs:[],inherited:false});
+    $("#aEmail").value="";toast("Sample: "+email+" would be added"+($("#aSend").checked?" and emailed an invitation":""),4500);await refreshPeople();return;
+  }
   const btn=$("#aAdd");btn.disabled=true;
   try{
     const msg="You've been given access to the Chandler Receiving app. On your phone or computer, open "+appUrl()+" , tap Sign in with Microsoft, and sign in with this email address ("+email+"). Tip: add it to your home screen so it opens like an app.";
@@ -804,6 +810,7 @@ async function addPerson(e){
 async function removePerson(i){
   const p=S.adminPeople&&S.adminPeople[+i];if(!p)return;
   if(!confirm("Remove "+(p.name||p.email)+"?\n\nThey won't be able to open the packing lists any more. You can add them back later."))return;
+  if(S.mode==="sample"){S.samplePeople=S.samplePeople.filter(x=>x.email!==p.email);toast("Sample: "+(p.name||p.email)+" would be removed");await refreshPeople();return;}
   try{
     for(const r of p.refs){
       if(r.kind==="direct")await gjson(itemPath(S.root)+"/permissions/"+r.id,{method:"DELETE"});
@@ -943,6 +950,7 @@ function showApp(){
   ["#bUser","#bExport","#bFolder"].forEach(s=>$(s).hidden=false);
   $("#bRescan").hidden=S.mode!=="folder"&&S.mode!=="cloud";
   $("#bSignOut").hidden=S.mode!=="cloud";
+  $("#bAdmin").hidden=!(S.mode==="sample"&&S.isAdmin);   // cloud mode: checkAdmin() decides
   $("#sampleBanner").hidden=S.mode!=="sample";
   setUserBtn();setStatus();closePanel();refreshLists();render();
   setTimeout(()=>$("#q").focus(),50);
@@ -1304,7 +1312,8 @@ function sampleFiles(){
 
 /* ---------- events ---------- */
 $("#bPick").onclick=pickFolder;
-$("#bSample").onclick=()=>{saveName();const s=sampleFiles();S.mode="sample";S.files=s.files;S.data=s.data;showApp();afterFilesChanged();};
+$("#bSample").onclick=()=>{saveName();const s=sampleFiles();S.mode="sample";S.isAdmin=true;S.root={name:"Receiving (sample)"};
+  S.samplePeople=[{email:"you@cap-inc.net",name:"You (owner)",role:"owner",refs:[],inherited:false},{email:"dave@cap-inc.net",name:"Dave Collins",role:"write",refs:[],inherited:false},{email:"sam.worker@gmail.com",name:"Sam Worker",role:"write",refs:[],inherited:false},{email:"jordan.lee@yahoo.com",name:"Jordan Lee",role:"read",refs:[],inherited:false}];S.files=s.files;S.data=s.data;showApp();afterFilesChanged();};
 $("#bFolder").onclick=()=>{if(S.mode==="sample"){location.reload();return;}if(S.mode==="cloud"){closePanel();showCloudPicker().catch(e=>{if(!authLost(e))toast(e.message,6000);});return;}pickFolder();};
 $("#bSignIn").onclick=()=>{saveName();signIn();};
 $("#bAdmin").onclick=()=>{openAdmin().catch(e=>{if(!authLost(e))toast(e.message,6000);});};
