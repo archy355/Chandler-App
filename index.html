@@ -1,0 +1,1275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Receiving Lookup</title>
+<!-- install as an app (works when hosted; ignored when opened as a file) -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#2f5d8a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Receiving">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<style>
+/* Receiving Lookup — single-file app, same look as Warehouse Locator.
+   It reads the packing-list folders you already keep (one folder per project manager,
+   files named "Job name - Shipper - Date received") and keeps extra info
+   (locations, notes) in receiving-data.json in that same top folder. */
+:root{
+  --bg:#eef0f2; --surface:#ffffff; --sunk:#e3e6ea; --line:#cfd4da; --line2:#dfe3e7;
+  --fg:#1c2329; --muted:#5d6873; --faint:#9aa6b2;
+  --accent:#d9480f; --accent-ink:#fff; --accent-soft:#fde3d4;
+  --steel:#2f5d8a; --steel-ink:#fff; --steel-soft:#dbe6f1;
+  --danger:#c92a2a; --warn-bg:#fff3bf; --warn-fg:#5c4400;
+  --f-display:"Bahnschrift SemiBold Condensed","Bahnschrift","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Segoe UI",system-ui,-apple-system,sans-serif;
+  --f-mono:Consolas,"Cascadia Mono",ui-monospace,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#14181c; --surface:#1d2328; --sunk:#262d33; --line:#36404a; --line2:#2b333a;
+  --fg:#e6eaee; --muted:#9aa6b2; --faint:#6b7782;
+  --accent:#f76b2a; --accent-ink:#1a0d05; --accent-soft:#4a2414;
+  --steel:#3f75ab; --steel-ink:#fff; --steel-soft:#1f3347;
+  --warn-bg:#3d3310; --warn-fg:#ffe08a; color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 var(--f-body);display:flex;flex-direction:column}
+button,input,select,textarea{font:inherit;color:inherit}
+[hidden]{display:none!important}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* top bar */
+.top{background:#2f5d8a;color:#fff;display:flex;align-items:center;gap:6px 14px;padding:10px 16px;flex-wrap:wrap}
+.brand{font:700 24px/1 var(--f-display);text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}
+.spacer{flex:1}
+.status{font-size:13px;display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.18);padding:5px 10px;border-radius:14px;max-width:380px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dot{width:8px;height:8px;border-radius:50%;background:#8ce99a;flex:none}
+.dot.sample{background:#ffd43b}.dot.err{background:#ff8787}.dot.busy{background:#74c0fc}
+.tbtn{background:rgba(255,255,255,.14);border:0;color:#fff;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap}
+.tbtn:hover{background:rgba(255,255,255,.24)}
+.tbtn.inst{background:#d9480f}.tbtn.inst:hover{background:#e8590c}
+.iostip{display:flex;gap:10px;align-items:center;background:var(--steel-soft);border-radius:6px;padding:10px 12px;margin:0 0 16px;font-size:14px}
+.iostip button{margin-left:auto;background:none;border:0;font-size:18px;cursor:pointer;color:var(--muted)}
+.banner{background:var(--warn-bg);color:var(--warn-fg);padding:7px 16px;font-size:14px}
+
+/* connect screen */
+.connect{flex:1;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;max-width:640px;width:100%;padding:26px 28px}
+.card h1{font:700 34px/1 var(--f-display);text-transform:uppercase;margin:0 0 8px;letter-spacing:.02em}
+.card p{margin:0 0 12px;color:var(--muted)}
+.card ol{margin:6px 0 18px;padding-left:22px;color:var(--muted)}
+.card ol li{margin:4px 0}
+.card code,.code{font-family:var(--f-mono);background:var(--sunk);padding:1px 5px;border-radius:3px;color:var(--fg);font-size:13px}
+.tree{font:13px/1.5 var(--f-mono);background:var(--sunk);border-radius:4px;padding:10px 12px;margin:0 0 16px;color:var(--fg);white-space:pre;overflow-x:auto}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.btn{height:40px;padding:0 16px;border-radius:4px;border:1px solid var(--steel);background:var(--surface);color:var(--steel);font-weight:600;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn:hover{background:var(--steel-soft)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.pri:hover{filter:brightness(1.07)}
+.btn.big{height:46px;font-size:16px}
+.btn.sm{height:32px;padding:0 10px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:default}
+.field{display:flex;flex-direction:column;gap:4px;margin:0 0 16px}
+.field label,.f>label{font:600 11px/1 var(--f-body);color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.inp{height:38px;border:1px solid var(--line);border-radius:4px;padding:0 10px;background:var(--surface)}
+.err-box{background:#ffe3e3;color:#7a1414;border-radius:4px;padding:10px 12px;margin-top:14px;font-size:14px}
+
+/* work area */
+.work{flex:1;min-height:0;display:flex}
+.view{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;gap:10px;padding:14px 16px;overflow:auto}
+.search{display:flex;gap:8px}
+.search input{flex:1;height:46px;border:1px solid var(--line);border-radius:4px;padding:0 12px;background:var(--surface);font-size:17px;min-width:0}
+.chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.chip{height:30px;padding:0 12px;border-radius:15px;border:1px solid var(--line);background:var(--surface);font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.chip.on{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.chip .n{font-weight:400;opacity:.7;font-size:12px}
+.chip.flag.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.pmrow{display:flex;flex-direction:column;gap:6px}
+.lbl{font:600 11px/1 var(--f-body);color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.pmbtns{display:flex;gap:8px;flex-wrap:wrap}
+.pmbtn{min-height:48px;padding:6px 16px;border-radius:6px;border:1px solid var(--line);background:var(--surface);cursor:pointer;display:inline-flex;align-items:center;gap:10px;text-align:left;font-weight:650;font-size:15px}
+.pmbtn:hover{border-color:var(--steel);background:var(--steel-soft)}
+.pmbtn .n{background:var(--sunk);color:var(--muted);border-radius:10px;padding:1px 8px;font-size:12px;font-weight:600}
+.pmbtn.on{background:var(--steel);border-color:var(--steel);color:var(--steel-ink)}
+.pmbtn.on .n{background:rgba(255,255,255,.22);color:var(--steel-ink)}
+.pmbtn.zero{opacity:.45}
+.rangechip.on{background:var(--steel);border-color:var(--steel);color:var(--steel-ink)}
+.count a{color:var(--steel);font-weight:600}
+.jobchip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.count{font-size:13px;color:var(--muted);flex:1}
+.sortsel{height:30px;border:1px solid var(--line);border-radius:4px;background:var(--surface);font-size:13px;padding:0 6px}
+
+/* results */
+.list{display:flex;flex-direction:column;gap:1px;background:var(--line2);border:1px solid var(--line2);border-radius:6px}
+.item{background:var(--surface);padding:9px 12px;display:grid;grid-template-columns:62px minmax(0,1fr) auto;gap:2px 14px;align-items:center;cursor:pointer;border:0;text-align:left;width:100%}
+.item:hover{background:var(--steel-soft)}
+.item.sel{box-shadow:inset 4px 0 0 var(--accent);background:var(--accent-soft)}
+.cal{grid-row:span 2;border:1px solid var(--line);border-radius:4px;text-align:center;overflow:hidden;background:var(--surface);align-self:center}
+.cal b{display:block;background:var(--steel);color:var(--steel-ink);font:700 11px/1 var(--f-body);text-transform:uppercase;letter-spacing:.06em;padding:3px 0}
+.cal span{display:block;font:700 20px/1.1 var(--f-display);padding:2px 0 0}
+.cal i{display:block;font:normal 11px/1.2 var(--f-body);color:var(--muted);padding-bottom:3px}
+.cal.nodate span{font-size:13px;padding:6px 0;color:var(--muted)}
+.cal{grid-column:1;grid-row:1/span 2}
+.item .j{grid-column:2;grid-row:1}
+.item .d{grid-column:2;grid-row:2}
+.item .r{grid-column:3;grid-row:1/span 2}
+.item .j{font-weight:650;font-size:15.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .d{color:var(--muted);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .r{grid-row:span 2;display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;max-width:240px}
+.loc{font:600 12.5px/1 var(--f-mono);background:var(--steel-soft);color:var(--fg);padding:5px 7px;border-radius:3px;white-space:nowrap}
+.loc.none{background:transparent;color:var(--faint);font:italic 12px/1 var(--f-body);padding:5px 0}
+.odd{font-size:11px;font-weight:600;color:var(--warn-fg);background:var(--warn-bg);padding:1px 6px;border-radius:3px;margin-left:6px;vertical-align:1px}
+mark{background:#ffe066;color:inherit;border-radius:2px;padding:0 1px}
+.none{background:var(--surface);border:1px solid var(--line2);border-radius:6px;padding:30px;text-align:center;color:var(--muted)}
+.jobhead{background:var(--sunk);padding:7px 12px;font:700 15px/1.2 var(--f-display);text-transform:uppercase;letter-spacing:.03em;display:flex;gap:8px;align-items:baseline}
+.jobhead small{font:12px var(--f-body);color:var(--muted);text-transform:none;letter-spacing:0}
+
+/* side panel */
+.panel{width:min(62vw,940px);flex:none;background:var(--surface);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0;overflow-y:auto}
+.ph{display:flex;align-items:center;gap:10px;padding:12px 18px 8px;position:sticky;top:0;background:var(--surface);z-index:2;border-bottom:1px solid var(--line2)}
+.ph h2{font:700 22px/1.05 var(--f-display);text-transform:uppercase;letter-spacing:.03em;margin:0;flex:1;min-width:0;overflow-wrap:anywhere}
+.iconbtn{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--surface);cursor:pointer;font-size:20px;line-height:1;flex:none}
+.iconbtn:hover{background:var(--sunk)}
+.pbody{display:flex;flex-direction:column;gap:12px;padding:12px 18px 20px}
+.doc{height:68vh;min-height:360px;background:var(--sunk);border:1px solid var(--line);border-radius:5px;display:flex;align-items:center;justify-content:center;overflow:auto;flex:none}
+.doc iframe{width:100%;height:100%;border:0;background:#fff}
+.doc img{max-width:100%;max-height:100%;object-fit:contain;background:#fff}
+.doc .msg{color:var(--muted);text-align:center;padding:20px;max-width:420px}
+.docbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.docbar .meta{flex:1;min-width:200px;overflow-wrap:anywhere}
+.det{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 14px}
+.det .v{font-weight:600;overflow-wrap:anywhere}
+.det .k{font:600 11px/1 var(--f-body);color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.f{display:flex;flex-direction:column;gap:5px}
+.f input,.f textarea,.f select{border:1px solid var(--line);border-radius:4px;padding:8px 10px;background:var(--surface);min-height:38px}
+.f textarea{resize:vertical}
+.f .hint{font-size:12px;color:var(--muted)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.meta{font-size:12px;color:var(--muted)}
+.pbtns{display:flex;gap:8px;justify-content:flex-end}
+.note{font-size:13px;background:var(--sunk);padding:8px 10px;border-radius:4px;overflow-wrap:anywhere}
+.note.warn{background:var(--accent-soft)}
+
+/* location chip input */
+.cin{display:flex;flex-wrap:wrap;gap:5px;align-items:center;border:1px solid var(--line);border-radius:4px;padding:5px 6px;background:var(--surface);min-height:42px;cursor:text}
+.cin:focus-within{outline:2px solid var(--accent);outline-offset:1px}
+.cin .loc{display:inline-flex;align-items:center;gap:4px;padding:4px 4px 4px 8px}
+.cin .loc button{border:0;background:transparent;cursor:pointer;font-size:15px;line-height:1;padding:0 3px;color:var(--muted)}
+.cin .loc button:hover{color:var(--danger)}
+.cin input{border:0!important;outline:none;flex:1;min-width:120px;min-height:28px!important;padding:2px 4px!important;background:transparent!important;font-family:var(--f-mono)}
+
+/* new delivery */
+.drop{border:2px dashed var(--line);border-radius:6px;padding:22px;text-align:center;color:var(--muted);background:var(--sunk);cursor:pointer}
+.drop:hover,.drop.over{border-color:var(--accent);color:var(--fg)}
+.drop b{color:var(--fg)}
+.picked{display:flex;gap:10px;align-items:center;background:var(--sunk);border-radius:5px;padding:8px 10px}
+.picked .meta{flex:1;overflow-wrap:anywhere;font-size:13px;color:var(--fg)}
+.minidoc{height:46vh;min-height:280px}
+.saveas{font:600 13px/1.4 var(--f-mono);background:var(--steel-soft);padding:8px 10px;border-radius:4px;overflow-wrap:anywhere}
+.dropall{position:fixed;inset:0;background:rgba(47,93,138,.82);color:#fff;display:flex;align-items:center;justify-content:center;font:700 34px/1.1 var(--f-display);text-transform:uppercase;z-index:60;pointer-events:none;text-align:center;padding:20px}
+
+/* OneDrive folder picker */
+.crumbs{display:flex;flex-wrap:wrap;gap:4px;align-items:center;font-size:14px;margin:0 0 8px}
+.crumbs button{background:none;border:0;color:var(--steel);font-weight:600;cursor:pointer;padding:2px 0}
+.crumbs span{color:var(--faint)}
+.glist{border:1px solid var(--line2);border-radius:6px;max-height:46vh;overflow:auto;display:flex;flex-direction:column;gap:1px;background:var(--line2)}
+.grow{background:var(--surface);border:0;text-align:left;padding:11px 12px;cursor:pointer;display:flex;gap:10px;align-items:center;font-weight:600;width:100%}
+.grow:hover{background:var(--steel-soft)}
+.grow .meta{margin-left:auto;font-weight:400}
+.glist .none{border:0;border-radius:0;padding:18px}
+/* PDF pages drawn by the built-in viewer (phones) */
+.doc.flow{height:auto;min-height:200px;display:block;overflow:visible;background:var(--sunk)}
+.pages{display:flex;flex-direction:column;gap:8px;padding:8px}
+.pages canvas{width:100%;height:auto;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);display:block}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:6px;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.25);z-index:70;max-width:calc(100% - 32px)}
+
+@media (max-width:900px){
+  .panel{position:fixed;inset:0;z-index:30;width:auto;border-left:0}
+  .status{max-width:100%}
+  .item{grid-template-columns:56px minmax(0,1fr)}
+  .cal{grid-row:1/span 3}
+  .item .r{grid-row:3;grid-column:2;justify-content:flex-start;max-width:none}
+  .det{grid-template-columns:1fr 1fr}
+  .two{grid-template-columns:1fr}
+  .doc{height:60vh}
+}
+/* phone: compact header, search stays at the top, button rows scroll sideways instead of stacking */
+@media (max-width:600px){
+  .top{padding:8px 12px;gap:6px 8px}
+  .brand{font-size:20px;width:100%}
+  .tbtn{padding:5px 8px;font-size:12px}
+  .status{font-size:12px;padding:4px 8px}
+  .banner{font-size:13px;padding:6px 12px}
+  .view{padding:0 12px 14px;gap:8px}
+  .search{position:sticky;top:0;z-index:5;background:var(--bg);padding:10px 0 4px}
+  .search input{height:44px}
+  .search .btn{padding:0 12px}
+  .long{display:none}
+  .pmbtns,#ranges,#jobs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -12px;padding:0 12px 2px}
+  .pmbtns::-webkit-scrollbar,#ranges::-webkit-scrollbar,#jobs::-webkit-scrollbar{display:none}
+  .pmbtn{min-height:40px;padding:4px 12px;flex:none;font-size:14px}
+  .chip{flex:none}
+  .count{flex-basis:100%;order:-1}
+  .ph{padding:10px 12px 8px}
+  .pbody{padding:10px 12px 18px}
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">Receiving Lookup</div>
+  <div class="spacer"></div>
+  <div class="status" id="status" hidden><span class="dot" id="sdot"></span><span id="stext"></span></div>
+  <button class="tbtn inst" id="bInstall" hidden title="Install Receiving Lookup as an app on this device">⬇ Install app</button>
+  <button class="tbtn" id="bUser" hidden title="Change the name saved with your changes"></button>
+  <button class="tbtn" id="bRescan" hidden title="Look through the folders again for new packing lists">↻ Refresh</button>
+  <button class="tbtn" id="bExport" hidden title="Save a CSV list that opens in Excel">Export to Excel</button>
+  <button class="tbtn" id="bFolder" hidden title="Pick a different packing-list folder">Folder</button>
+  <button class="tbtn" id="bSignOut" hidden title="Sign out of Microsoft on this device">Sign out</button>
+</header>
+<div class="banner" id="sampleBanner" hidden>Sample mode: made-up packing lists, and nothing is saved. Reload the page and choose your folder to use it for real.</div>
+
+<!-- CONNECT -->
+<main class="connect" id="vConnect">
+  <div class="card">
+    <div class="iostip" id="iosTip" hidden><span>📱 <b>Make it an app:</b> tap the <b>Share</b> button <span aria-hidden="true">⬆</span>, then <b>Add to Home Screen</b>.</span><button type="button" id="iosTipX" aria-label="Hide tip">×</button></div>
+    <h1>Connect to your packing lists</h1>
+    <p>Pick the folder that holds your project-manager folders. The app reads the file names, so you can search by job, shipper, date or project manager and open the packing list right here. Nothing is moved or renamed.</p>
+    <div class="tree">Receiving            &lt;- pick this one
+├─ Dave Collins
+│   ├─ Scituate - Estes - 11-3-26.pdf
+│   └─ Clinton - UPS Freight - 10-28-26.pdf
+└─ Maria Lopez
+    └─ Tri-County - XPO - 11-5-26.pdf</div>
+    <p id="cloudIntro" hidden><b>On a phone or any computer:</b> click <b>Sign in with Microsoft</b> and use your work account. <span id="pcOr">On a PC you can also pick the folder directly:</span></p>
+    <ol id="pcSteps">
+      <li>Click <b>Choose folder</b> and pick that top folder.</li>
+      <li>When Edge asks, allow it to <b>view and edit</b> files (the app only adds new packing lists you log, and its own <code>receiving-data.json</code> for locations and notes).</li>
+      <li>Choose <b>Allow on every visit</b> so you don't have to pick it again.</li>
+    </ol>
+    <div class="field">
+      <label for="cName">Your name (saved with locations and notes you add)</label>
+      <input class="inp" id="cName" maxlength="40" placeholder="e.g. Mike">
+    </div>
+    <div class="row">
+      <button class="btn pri big" id="bSignIn" hidden>Sign in with Microsoft</button>
+      <button class="btn pri big" id="bReconnect" hidden></button>
+      <button class="btn pri big" id="bPick">Choose folder</button>
+      <button class="btn" id="bSample">Try with sample data</button>
+    </div>
+    <p class="meta" id="cloudNote" style="margin-top:12px" hidden></p>
+    <div class="err-box" id="cErr" hidden></div>
+  </div>
+</main>
+
+<!-- PICK THE ONEDRIVE FOLDER (after Microsoft sign-in) -->
+<main class="connect" id="vCloud" hidden>
+  <div class="card">
+    <h1>Pick the packing-list folder</h1>
+    <p>Open the folder that holds the project-manager folders, then click <b>Use this folder</b>. You only do this once on each phone or computer.</p>
+    <div class="crumbs" id="gCrumbs"></div>
+    <div class="glist" id="gList"></div>
+    <div class="row" style="margin-top:12px"><button class="btn pri big" id="gUse">Use this folder</button><button class="btn" id="gSignOut">Sign out</button></div>
+    <details style="margin-top:16px"><summary class="meta" style="cursor:pointer;font-size:14px">Folder shared with you by someone else? Paste its link instead</summary>
+      <p class="meta" style="margin:8px 0">In OneDrive, open the folder, click <b>Share</b> &gt; <b>Copy link</b>, and paste it here. (Or open it in OneDrive on the web and click <b>Add shortcut to My files</b>; then it shows in the list above.)</p>
+      <div class="row"><input class="inp" id="gLink" placeholder="https://…sharepoint.com/…" style="flex:1;min-width:0"><button class="btn" id="gLinkGo">Use link</button></div>
+    </details>
+    <div class="err-box" id="gErr" hidden></div>
+  </div>
+</main>
+
+<div class="work" id="work" hidden>
+  <main class="view" id="vMain">
+    <div class="search">
+      <input id="q" type="search" placeholder="Search job, shipper, PM, spot, date" aria-label="Search packing lists" autocomplete="off">
+      <button class="btn pri big" id="bNew" title="Add a newly scanned packing list (you can also drag a file onto the window)">+ Log<span class="long"> delivery</span></button>
+    </div>
+    <div class="pmrow"><span class="lbl">Project managers</span><div class="pmbtns" id="pms"></div></div>
+    <div class="pmrow"><span class="lbl">Time frame</span><div class="chips" id="ranges"></div></div>
+    <div class="pmrow" id="jobsRow" hidden><span class="lbl" id="jobsLbl">Jobs</span><div class="chips" id="jobs"></div></div>
+    <div class="bar">
+      <div class="count" id="count"></div>
+      <span id="noLocWrap"></span>
+      <select class="sortsel" id="sort" aria-label="Sort">
+        <option value="new">Newest first</option>
+        <option value="old">Oldest first</option>
+        <option value="job">By job</option>
+      </select>
+    </div>
+    <div id="out"></div>
+  </main>
+
+  <aside class="panel" id="panel" hidden>
+    <div class="ph"><h2 id="pTitle"></h2><button type="button" class="iconbtn" id="pClose" aria-label="Close" title="Close (Esc)">×</button></div>
+
+    <!-- VIEW A PACKING LIST -->
+    <div class="pbody" id="pView" hidden>
+      <div class="doc" id="doc"></div>
+      <div class="docbar">
+        <span class="meta" id="vPath"></span>
+        <button type="button" class="btn sm" id="vOpen">Open in new tab</button>
+      </div>
+      <div class="det" id="vDet"></div>
+      <form id="vForm" autocomplete="off" style="display:flex;flex-direction:column;gap:12px">
+        <div class="f"><label for="vLocIn">Where is it? (location)</label>
+          <div class="cin" id="vLocs"><input id="vLocIn" list="locList" placeholder="Type a spot, e.g. R2A3, S12B1, Floor 5 — press Enter"></div>
+          <span class="hint">Add more than one if the delivery is split up.</span></div>
+        <div class="f"><label for="vNotes">Notes</label><textarea id="vNotes" rows="2" placeholder="e.g. 2 of 3 skids, short 1 box of anchors"></textarea></div>
+        <div class="row"><span class="meta" id="vMeta" style="flex:1"></span><button type="submit" class="btn pri" id="vSave">Save</button></div>
+      </form>
+    </div>
+
+    <!-- LOG A NEW DELIVERY -->
+    <form class="pbody" id="pNew" autocomplete="off" hidden>
+      <button type="button" class="btn pri big" id="nCamBtn" hidden>📷 Take a photo of the packing list</button>
+      <div class="drop" id="nDrop" tabindex="0" role="button"><b id="nDropTitle">Drop the scanned packing list here</b><br><span id="nDropSub">or click to choose the file (PDF or picture)</span></div>
+      <input type="file" id="nFile" accept=".pdf,image/*" hidden>
+      <input type="file" id="nCam" accept="image/*" capture="environment" hidden>
+      <div class="picked" id="nPicked" hidden><span class="meta" id="nPickedName"></span><button type="button" class="btn sm" id="nChange">Change file</button></div>
+      <div class="doc minidoc" id="nDoc" hidden></div>
+      <div class="two">
+        <div class="f"><label for="nJob">Job name</label><input id="nJob" list="jobList" required placeholder="e.g. Scituate"></div>
+        <div class="f"><label for="nPM">Project manager (folder)</label><input id="nPM" list="pmList" required placeholder="Pick or type a name"></div>
+      </div>
+      <div class="two">
+        <div class="f"><label for="nShip">Shipper</label><input id="nShip" list="shipList" required placeholder="e.g. Estes"></div>
+        <div class="f"><label for="nDate">Date received</label><input id="nDate" type="date" required></div>
+      </div>
+      <div class="f"><label for="nLocIn">Where did it go? (location)</label>
+        <div class="cin" id="nLocs"><input id="nLocIn" list="locList" placeholder="Type a spot, e.g. R2A3 — press Enter"></div>
+        <span class="hint">Optional. You can add or change this later.</span></div>
+      <div class="f"><label for="nNotes">Notes</label><textarea id="nNotes" rows="2" placeholder="Optional"></textarea></div>
+      <div class="f"><label>Will be saved as</label><div class="saveas" id="nSaveAs">—</div></div>
+      <div class="note warn" id="nWarn" hidden></div>
+      <div class="pbtns"><button type="button" class="btn" id="nCancel">Cancel</button><button type="submit" class="btn pri" id="nSave">Save packing list</button></div>
+    </form>
+  </aside>
+</div>
+<datalist id="locList"></datalist><datalist id="jobList"></datalist><datalist id="pmList"></datalist><datalist id="shipList"></datalist>
+<div class="dropall" id="dropAll" hidden>Drop to log a new delivery</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* ======================================================================
+   SETTINGS FOR MICROSOFT SIGN-IN (phone + PC). See "HOW TO SET UP PHONE.txt".
+   clientId    : "Application (client) ID" from the app registration.
+   tenant      : "Directory (tenant) ID" from the same page, or leave "organizations".
+   folderLink  : optional link to the Receiving folder so nobody has to pick it.
+                 Leave blank if this file is hosted publicly.
+   ====================================================================== */
+const CONFIG={
+  clientId:"",
+  tenant:"organizations",
+  folderLink:""
+};
+(function(){
+"use strict";
+
+const DATA_FILE="receiving-data.json", POLL_MS=15000, RESCAN_MS=120000, SHOW_MAX=400;
+const DOC_RX=/\.(pdf|jpe?g|png|gif|webp|bmp|tiff?|heic|svg)$/i;
+const VIEW_IMG=/\.(jpe?g|png|gif|webp|bmp|svg)$/i;
+const SKIP_DIR=/^(backups|\..*)$/i;
+const NO_PM="(Top folder)";
+
+/* Same spot names as Warehouse Locator, offered as suggestions when typing a location. */
+const RACKS={1:["A",5,"B",5],2:["A",5,"B",5],3:["A",4,"B",4],4:["A",5],5:["A",5],6:["A",5],7:["A",5]};
+const SHELF_LEVELS={1:"AB",2:"ABCD",3:"AB",4:"ABCD",5:"ABC",6:"AB",7:"AB",8:"ABC",9:"ABCD",10:"ABCD",11:"ABCD",12:"ABCD",13:"ABCD",14:"ABCD",15:"ABCD",16:"ABCD"};
+function warehouseSpots(){
+  const out=[];
+  for(const n in RACKS){const a=RACKS[n];for(let i=0;i<a.length;i+=2)for(let c=1;c<=a[i+1];c++)out.push("R"+n+a[i]+c);if(n>=4)out.push("R"+n+" Floor");}
+  for(let n=1;n<=16;n++)for(const lv of SHELF_LEVELS[n])for(let c=1;c<=2;c++)out.push("S"+n+lv+c);
+  for(let n=1;n<=5;n++)out.push("Floor "+n);
+  out.push("Outside","Steel Rack","Office");
+  return out;
+}
+
+/* ---------- state ---------- */
+const S={dir:null,mode:"none",files:[],data:null,lastMod:0,busy:false,scanning:false,lastScan:0,
+  pm:"All",job:"",range:lsGet("rl-range")||"12m",noLoc:false,sort:"new",panel:null,sel:null,url:null,newFile:null,newUrl:null,vLocs:[],nLocs:[],style:null};
+
+/* ---------- helpers ---------- */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const norm=s=>String(s||"").trim().replace(/\s+/g," ");
+const key=s=>norm(s).toLowerCase();
+const nowISO=()=>new Date().toISOString();
+const natural=(a,b)=>String(a||"").localeCompare(String(b||""),undefined,{numeric:true,sensitivity:"base"});
+const loose=s=>key(s).replace(/[^a-z0-9]/g,"");
+const isYear=s=>/^(19|20)\d\d$/.test(norm(s));
+function hasQ(v,q){if(!q)return true;if(key(v).includes(q))return true;const lq=loose(q);return !!lq&&loose(v).includes(lq);}
+function lsGet(k){try{return localStorage.getItem(k)||""}catch(e){return""}}
+function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+let toastT;
+function toast(msg,ms){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,ms||3200);}
+const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function fmtDate(d){return d?MON[d.getMonth()]+" "+d.getDate()+", "+d.getFullYear():"";}
+function fmtTime(t){if(!t)return"";const d=new Date(t);return d.toLocaleString([], {month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"});}
+function isoDay(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function userName(){
+  let n=lsGet("rl-user")||lsGet("wl-user");
+  if(!n){n=norm(prompt("Your name, so others can see who added this:")||"");if(n)lsSet("rl-user",n);setUserBtn();}
+  return n||"Unknown";
+}
+function setUserBtn(){const n=lsGet("rl-user")||lsGet("wl-user");$("#bUser").textContent=n?"👤 "+n:"👤 Set your name";}
+
+/* ---------- reading the file name: "Job name - Shipper - Date received" ---------- */
+function mkDate(y,m,d){if(y<100)y+=2000;if(m<1||m>12||d<1||d>31||y<1990||y>2100)return null;const x=new Date(y,m-1,d);return x.getMonth()===m-1?x:null;}
+function parseDate(s){
+  s=norm(s);let m;
+  if((m=/^(\d{4})[-._ ](\d{1,2})[-._ ](\d{1,2})$/.exec(s))){const d=mkDate(+m[1],+m[2],+m[3]);return d&&{d,st:{o:"ymd",sep:s[4],pad:true,y:4}};}
+  if((m=/^(\d{1,2})([-._ ])(\d{1,2})\2(\d{2}|\d{4})$/.exec(s))){const d=mkDate(+m[4],+m[1],+m[3]);return d&&{d,st:{o:"mdy",sep:m[2],pad:m[1].length===2&&m[1][0]==="0"||m[3].length===2&&m[3][0]==="0",y:m[4].length}};}
+  if((m=/^(\d{2})(\d{2})(\d{2}|\d{4})$/.exec(s))){const d=mkDate(+m[3],+m[1],+m[2]);return d&&{d,st:{o:"n",sep:"",pad:true,y:m[3].length}};}
+  if(/[a-z]/i.test(s)&&/\d/.test(s)){const t=Date.parse(s.replace(/[-_.]/g," "));if(!isNaN(t)){const x=new Date(t);if(x.getFullYear()>1990)return {d:x,st:null};}}
+  return null;
+}
+function formatDate(d,st){
+  st=st||{o:"mdy",sep:"-",pad:false,y:2};
+  const p=n=>st.pad?String(n).padStart(2,"0"):String(n);
+  const y=st.y===2?String(d.getFullYear()).slice(-2):String(d.getFullYear());
+  if(st.o==="ymd")return d.getFullYear()+st.sep+String(d.getMonth()+1).padStart(2,"0")+st.sep+String(d.getDate()).padStart(2,"0");
+  if(st.o==="n")return String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0")+y;
+  return p(d.getMonth()+1)+st.sep+p(d.getDate())+st.sep+y;
+}
+function parseName(name){
+  let base=name.replace(/\.[^.]+$/,"").replace(/\s*\(\d+\)$/,"").replace(/[–—]/g,"-");
+  base=norm(base);
+  let parts=base.split(/\s+-\s+/).map(norm).filter(Boolean);
+  if(parts.length===2){ // "Job - Shipper 11-3-26"
+    const m=/^(.*\S)\s+(\d[\d._ -]*\d)$/.exec(parts[1]);
+    if(m&&parseDate(m[2]))parts=[parts[0],m[1],m[2]];
+  }
+  if(parts.length<3){ // "Job-Shipper-11-3-26" (no spaces)
+    const m=/^(.+?)\s*-\s*(.+?)\s*-\s*(\d{1,4}[-._]\d{1,2}[-._]\d{2,4}|\d{6,8})$/.exec(base);
+    if(m&&parseDate(m[3]))parts=[m[1],m[2],m[3]];
+  }
+  if(parts.length>=3){
+    const last=parts[parts.length-1],pd=parseDate(last);
+    return {job:parts.slice(0,-2).join(" - "),shipper:parts[parts.length-2],date:pd?pd.d:null,dateRaw:pd?"":last,style:pd?pd.st:null,ok:!!pd};
+  }
+  if(parts.length===2)return {job:parts[0],shipper:parts[1],date:null,dateRaw:"",style:null,ok:false};
+  return {job:base,shipper:"",date:null,dateRaw:"",style:null,ok:false};
+}
+
+/* ---------- IndexedDB: remembers the chosen folder ---------- */
+function idb(){return new Promise((res,rej)=>{const r=indexedDB.open("receiving-lookup",1);r.onupgradeneeded=()=>r.result.createObjectStore("kv");r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
+async function kvGet(k){try{const db=await idb();return await new Promise((res,rej)=>{const q=db.transaction("kv").objectStore("kv").get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error);});}catch(e){return undefined}}
+async function kvSet(k,v){try{const db=await idb();await new Promise((res,rej)=>{const tx=db.transaction("kv","readwrite");tx.objectStore("kv").put(v,k);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});}catch(e){}}
+
+/* ---------- scanning the folders (names only, so OneDrive doesn't download every file) ---------- */
+function makeRec(path,name,handle,blob){
+  const p=parseName(name);
+  // Year folders ("2025") are archives, not project managers. Works for Receiving\2025\PM\… and Receiving\PM\2025\…
+  const yrs=path.filter(isYear),rest=path.filter(x=>!isYear(x));
+  return Object.assign({id:path.concat(name).join("/"),path,name,pm:rest.length?rest[0]:NO_PM,archive:yrs.length?+yrs[yrs.length-1]:null,handle,blob},p);
+}
+async function walk(dir,path,out,depth){
+  const subs=[];
+  for await(const [name,h] of dir.entries()){
+    if(h.kind==="directory"){if(!SKIP_DIR.test(name)&&depth<6)subs.push(walk(h,path.concat(name),out,depth+1));}
+    else if(DOC_RX.test(name)&&!/^~\$/.test(name))out.push(makeRec(path,name,h,null));
+  }
+  await Promise.all(subs);
+}
+async function scan(quiet){
+  if((S.mode!=="folder"&&S.mode!=="cloud")||S.scanning)return;
+  S.scanning=true;if(!quiet)setStatus("Reading folders…",false,true);
+  if(!S.files.length)render();
+  try{
+    const out=[];
+    if(S.mode==="cloud"){const folders={};await gWalk(S.root,[],out,folders,0);S.gFolders=folders;}
+    else await walk(S.dir,[],out,0);
+    S.files=out;S.lastScan=Date.now();S.scanning=false;afterFilesChanged();
+    if(!quiet)setStatus(out.length+" packing lists found");
+  }catch(e){console.error(e);if(!authLost(e))setStatus("Couldn't read the folder: "+e.message,true);}
+  finally{S.scanning=false;}
+}
+function afterFilesChanged(){
+  // Most common date style in existing names is used for new names.
+  const c={};let best=null,bn=0;
+  for(const f of S.files)if(f.style){const k=JSON.stringify(f.style);c[k]=(c[k]||0)+1;if(c[k]>bn){bn=c[k];best=f.style;}}
+  S.style=best;
+  refreshLists();render();
+  if(S.panel==="view"&&!fileById(S.sel))closePanel();
+}
+
+/* ======================================================================
+   MICROSOFT SIGN-IN + ONEDRIVE (Microsoft Graph). No Power Apps, no extra libraries.
+   Sign-in uses the standard "authorization code + PKCE" flow for web pages.
+   ====================================================================== */
+const SCOPES="openid profile offline_access User.Read Files.ReadWrite.All";
+const GRAPH="https://graph.microsoft.com/v1.0";
+const authBase=()=>"https://login.microsoftonline.com/"+(CONFIG.tenant||"organizations")+"/oauth2/v2.0/";
+const redirectUri=()=>location.origin+location.pathname.replace(/index\.html$/i,"");
+const cloudReady=()=>!!CONFIG.clientId&&(location.protocol==="https:"||/^(localhost|127\.0\.0\.1)$/.test(location.hostname));
+let T={access:"",exp:0,refresh:""};
+function ssGet(k){try{return sessionStorage.getItem(k)||""}catch(e){return""}}
+function ssSet(k,v){try{sessionStorage.setItem(k,v)}catch(e){}}
+function lsDel(k){try{localStorage.removeItem(k)}catch(e){}}
+function loadTokens(){try{const t=JSON.parse(lsGet("rl-tok")||"null");if(t&&t.refresh)T=t;}catch(e){}return !!T.refresh;}
+function saveTokens(){lsSet("rl-tok",JSON.stringify(T));}
+const b64url=buf=>btoa(String.fromCharCode.apply(null,new Uint8Array(buf))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+const rnd=n=>{const a=new Uint8Array(n);crypto.getRandomValues(a);return b64url(a);};
+class NeedSignIn extends Error{}
+
+async function signIn(){
+  const verifier=rnd(48),state=rnd(16);
+  const challenge=b64url(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(verifier)));
+  ssSet("rl-pkce",JSON.stringify({verifier,state}));
+  const p=new URLSearchParams({client_id:CONFIG.clientId,response_type:"code",redirect_uri:redirectUri(),response_mode:"query",scope:SCOPES,state,code_challenge:challenge,code_challenge_method:"S256"});
+  const hint=lsGet("rl-login");if(hint)p.set("login_hint",hint);else p.set("prompt","select_account");
+  location.href=authBase()+"authorize?"+p.toString();
+}
+async function tokenRequest(params){
+  const r=await fetch(authBase()+"token",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},
+    body:new URLSearchParams(Object.assign({client_id:CONFIG.clientId,scope:SCOPES},params))});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok){const e=new Error(j.error_description?j.error_description.split("\r\n")[0]:(j.error||"Sign-in failed"));e.code=j.error;throw e;}
+  T={access:j.access_token,exp:Date.now()+((j.expires_in||3600)-120)*1000,refresh:j.refresh_token||T.refresh};saveTokens();
+}
+/* Coming back from the Microsoft sign-in page with ?code=… */
+async function finishSignIn(){
+  const u=new URL(location.href),code=u.searchParams.get("code"),err=u.searchParams.get("error");
+  if(!code&&!err)return false;
+  history.replaceState(null,"",redirectUri());
+  if(err)throw new Error((u.searchParams.get("error_description")||err).split("\r\n")[0]);
+  let saved={};try{saved=JSON.parse(ssGet("rl-pkce")||"{}")}catch(e){}
+  if(!saved.verifier||saved.state!==u.searchParams.get("state"))throw new Error("The sign-in didn't match this page. Please try again.");
+  await tokenRequest({grant_type:"authorization_code",code,redirect_uri:redirectUri(),code_verifier:saved.verifier});
+  return true;
+}
+async function getToken(force){
+  if(!force&&T.access&&Date.now()<T.exp)return T.access;
+  if(!T.refresh)throw new NeedSignIn("Please sign in.");
+  if(!refreshing)refreshing=tokenRequest({grant_type:"refresh_token",refresh_token:T.refresh}).finally(()=>{refreshing=null;});
+  try{await refreshing;}
+  catch(e){if(e.code==="invalid_grant"||e.code==="interaction_required"){T={access:"",exp:0,refresh:""};saveTokens();throw new NeedSignIn("Your sign-in expired.");}throw e;}
+  return T.access;
+}
+let refreshing=null;
+/* if Microsoft wants you to sign in again, go do it (usually automatic) */
+function authLost(e){
+  if(!(e instanceof NeedSignIn))return false;
+  toast("Signing you in again…",4000);setTimeout(signIn,900);return true;
+}
+function signOut(){lsDel("rl-tok");lsDel("rl-root");T={access:"",exp:0,refresh:""};location.href=redirectUri();}
+
+/* Graph requests: at most 6 at a time, retry when Microsoft says "slow down" */
+let gActive=0;const gWait=[];
+const gSlot=()=>new Promise(r=>{if(gActive<6){gActive++;r();}else gWait.push(r);});
+const gFree=()=>{const n=gWait.shift();if(n)n();else gActive--;};
+async function gfetch(path,opts,tries){
+  opts=opts||{};tries=tries||0;
+  await gSlot();
+  let r;
+  try{
+    const tok=await getToken(tries>0&&opts._was401);
+    r=await fetch(/^https?:/.test(path)?path:GRAPH+path,Object.assign({},opts,{headers:Object.assign({Authorization:"Bearer "+tok},opts.headers||{})}));
+  }finally{gFree();}
+  if(r.status===401&&tries<1)return gfetch(path,Object.assign({},opts,{_was401:true}),tries+1);
+  if((r.status===429||r.status===503||r.status===504)&&tries<4){await new Promise(z=>setTimeout(z,1000*(+r.headers.get("Retry-After")||2*(tries+1))));return gfetch(path,opts,tries+1);}
+  return r;
+}
+async function gjson(path,opts){
+  const r=await gfetch(path,opts);
+  if(!r.ok){const j=await r.json().catch(()=>({}));const e=new Error((j.error&&j.error.message)||("OneDrive error "+r.status));e.status=r.status;throw e;}
+  return r.status===204?null:r.json();
+}
+const itemPath=(ref,sub)=>"/drives/"+ref.driveId+"/items/"+ref.id+(sub?":/"+sub.split("/").map(encodeURIComponent).join("/")+":":"");
+
+/* list a folder (all pages) */
+async function gChildren(ref){
+  const out=[];let url=itemPath(ref)+"/children?$select=id,name,folder,file,remoteItem,size,parentReference&$top=999";
+  while(url){const j=await gjson(url);out.push.apply(out,j.value);url=j["@odata.nextLink"]||null;}
+  return out;
+}
+const refOf=(k,parent)=>k.remoteItem?{driveId:k.remoteItem.parentReference.driveId,id:k.remoteItem.id,name:k.name}:{driveId:parent.driveId,id:k.id,name:k.name};
+/* read every folder under the Receiving folder: names only, so nothing is downloaded */
+async function gWalk(ref,path,out,folders,depth){
+  const kids=await gChildren(ref);const subs=[];
+  for(const k of kids){
+    const isFolder=k.folder||(k.remoteItem&&k.remoteItem.folder);
+    if(isFolder){
+      if(SKIP_DIR.test(k.name)||depth>=6)continue;
+      const r=refOf(k,ref);folders[key(path.concat(k.name).join("/"))]=r;
+      subs.push(gWalk(r,path.concat(k.name),out,folders,depth+1));
+    }else if((k.file||(k.remoteItem&&k.remoteItem.file))&&DOC_RX.test(k.name)&&!/^~\$/.test(k.name)){
+      const rec=makeRec(path,k.name,null,null);rec.g=refOf(k,ref);out.push(rec);
+    }
+  }
+  await Promise.all(subs);
+}
+async function gDownload(ref,name){
+  const it=await gjson("/drives/"+ref.driveId+"/items/"+ref.id);
+  const url=it["@microsoft.graph.downloadUrl"];
+  const r=url?await fetch(url):await gfetch("/drives/"+ref.driveId+"/items/"+ref.id+"/content");
+  if(!r.ok)throw new Error("Download failed ("+r.status+")");
+  const buf=await r.arrayBuffer();
+  return new Blob([buf],{type:(it.file&&it.file.mimeType)||(/\.pdf$/i.test(name)?"application/pdf":"")});
+}
+/* receiving-data.json in the Receiving folder; eTag stops two people overwriting each other */
+async function gReadData(){
+  let it;
+  try{it=await gjson(itemPath(S.root,DATA_FILE));}catch(e){if(e.status===404)return {data:emptyData(),etag:""};throw e;}
+  const blob=await gDownload({driveId:S.root.driveId,id:it.id},DATA_FILE);
+  let d;try{d=JSON.parse(await blob.text())}catch(e){throw new Error("receiving-data.json is damaged. Restore an earlier version in OneDrive (Version history).");}
+  return {data:validate(d),etag:it.eTag};
+}
+async function gWriteData(d,etag){
+  const h={"Content-Type":"application/json"};if(etag)h["If-Match"]=etag;
+  const r=await gfetch(itemPath(S.root,DATA_FILE)+"/content"+(etag?"":"?@microsoft.graph.conflictBehavior=fail"),{method:"PUT",headers:h,body:JSON.stringify(d,null,1)});
+  if(r.status===412||r.status===409)return null;   // someone else saved first: caller re-reads and tries again
+  if(!r.ok){const j=await r.json().catch(()=>({}));throw new Error((j.error&&j.error.message)||("Save failed ("+r.status+")"));}
+  return (await r.json()).eTag;
+}
+/* upload a new packing list (big files go up in pieces) */
+async function gUpload(folder,name,blob){
+  if(blob.size<=4*1024*1024){
+    const r=await gfetch(itemPath(folder,name)+"/content?@microsoft.graph.conflictBehavior=fail",{method:"PUT",headers:{"Content-Type":blob.type||"application/octet-stream"},body:blob});
+    if(r.status===409)return null;
+    if(!r.ok)throw new Error("Upload failed ("+r.status+")");
+    return r.json();
+  }
+  const sess=await gjson(itemPath(folder,name)+"/createUploadSession",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({item:{"@microsoft.graph.conflictBehavior":"fail"}})}).catch(e=>{if(e.status===409)return null;throw e;});
+  if(!sess)return null;
+  const CH=320*1024*10;let res;
+  for(let s=0;s<blob.size;s+=CH){
+    const e=Math.min(s+CH,blob.size);
+    res=await fetch(sess.uploadUrl,{method:"PUT",headers:{"Content-Range":"bytes "+s+"-"+(e-1)+"/"+blob.size},body:blob.slice(s,e)});
+    if(res.status===409)return null;
+    if(!res.ok&&res.status!==202)throw new Error("Upload failed ("+res.status+")");
+  }
+  return res.json();
+}
+async function gEnsureFolder(name){
+  const k=key(name);if(S.gFolders[k])return S.gFolders[k];
+  let it;
+  try{it=await gjson(itemPath(S.root)+"/children",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,folder:{},"@microsoft.graph.conflictBehavior":"fail"})});}
+  catch(e){if(e.status!==409)throw e;it=await gjson(itemPath(S.root,name));}
+  return (S.gFolders[k]={driveId:S.root.driveId,id:it.id,name:it.name});
+}
+async function gResolveLink(link){
+  const enc="u!"+btoa(unescape(encodeURIComponent(link.trim()))).replace(/=+$/,"").replace(/\//g,"_").replace(/\+/g,"-");
+  const it=await gjson("/shares/"+enc+"/driveItem?$select=id,name,folder,parentReference");
+  if(!it.folder)throw new Error("That link is to a file, not a folder.");
+  return {driveId:it.parentReference.driveId,id:it.id,name:it.name};
+}
+
+/* ---------- after sign-in ---------- */
+async function startCloud(){
+  await getToken();
+  if(!lsGet("rl-user")||!lsGet("rl-login")){
+    try{const me=await gjson("/me?$select=displayName,userPrincipalName");if(me.userPrincipalName)lsSet("rl-login",me.userPrincipalName);if(!lsGet("rl-user")&&me.displayName){lsSet("rl-user",me.displayName);setUserBtn();}}catch(e){}
+  }
+  let root=null;try{root=JSON.parse(lsGet("rl-root")||"null")}catch(e){}
+  if(!root&&CONFIG.folderLink){try{root=await gResolveLink(CONFIG.folderLink);}catch(e){console.warn(e);}}
+  if(root){try{await openCloudRoot(root);return;}catch(e){if(e instanceof NeedSignIn)throw e;$("#gErr").textContent="Couldn't open "+root.name+": "+e.message;$("#gErr").hidden=false;}}
+  await showCloudPicker();
+}
+async function openCloudRoot(root){
+  S.mode="cloud";S.root=root;S.gFolders={};S.files=[];
+  const r=await gReadData();S.data=r.data;S.etag=r.etag;
+  lsSet("rl-root",JSON.stringify(root));
+  $("#vCloud").hidden=true;showApp();await scan();
+}
+/* folder picker: starts in My files */
+const G={stack:[]};
+async function showCloudPicker(){
+  $("#vConnect").hidden=true;$("#work").hidden=true;$("#vCloud").hidden=false;
+  ["#bUser","#bExport","#bFolder","#bRescan","#bSignOut"].forEach(s=>$(s).hidden=true);$("#status").hidden=true;
+  if(!G.stack.length){const r=await gjson("/me/drive/root?$select=id,name,parentReference");G.stack=[{driveId:r.parentReference.driveId,id:r.id,name:"My files"}];}
+  await renderPicker();
+}
+async function renderPicker(){
+  const cur=G.stack[G.stack.length-1];
+  $("#gCrumbs").innerHTML=G.stack.map((s,i)=>i===G.stack.length-1?"<b>"+esc(s.name)+"</b>":'<button type="button" data-i="'+i+'">'+esc(s.name)+"</button><span>›</span>").join(" ");
+  $("#gList").innerHTML='<div class="none">Loading…</div>';$("#gUse").disabled=G.stack.length<2;
+  try{
+    const kids=(await gChildren(cur)).filter(k=>k.folder||(k.remoteItem&&k.remoteItem.folder)).sort((a,b)=>natural(a.name,b.name));
+    G.kids=kids;
+    $("#gList").innerHTML=kids.length?kids.map((k,i)=>'<button type="button" class="grow" data-k="'+i+'">📁 '+esc(k.name)+(k.remoteItem?' <span class="meta">shared</span>':"")+"</button>").join(""):'<div class="none">No folders in here.</div>';
+  }catch(e){$("#gList").innerHTML='<div class="none">Couldn\'t list this folder: '+esc(e.message)+"</div>";}
+}
+
+/* ---------- extra info file (locations + notes) ---------- */
+function emptyData(){return {app:"receiving-lookup",schema:1,updated:nowISO(),records:{}};}
+function validate(d){if(!d||typeof d.records!=="object"||Array.isArray(d.records))throw new Error("receiving-data.json doesn't look like Receiving Lookup data.");return d;}
+async function readDisk(){
+  let fh;try{fh=await S.dir.getFileHandle(DATA_FILE);}catch(e){return {data:emptyData(),lastMod:0};}
+  const f=await fh.getFile();
+  let d;try{d=JSON.parse(await f.text())}catch(e){throw new Error("receiving-data.json is damaged or half-synced. Wait a moment and try again.");}
+  return {data:validate(d),lastMod:f.lastModified};
+}
+async function writeDisk(d){
+  const fh=await S.dir.getFileHandle(DATA_FILE,{create:true});const w=await fh.createWritable();
+  await w.write(JSON.stringify(d,null,1));await w.close();S.lastMod=(await fh.getFile()).lastModified;
+}
+async function commit(change){
+  if(S.busy){toast("Still saving, try again in a second.");return false;}
+  S.busy=true;
+  try{
+    let d;
+    if(S.mode==="cloud"){
+      setStatus("Saving…",false,true);
+      for(let i=0;;i++){
+        const r=await gReadData();d=r.data;
+        if(change(d)===false)return false;
+        d.updated=nowISO();
+        const tag=await gWriteData(d,r.etag);
+        if(tag){S.etag=tag;break;}
+        if(i>=4)throw new Error("Someone else keeps saving at the same time. Try again.");
+      }
+    }else{
+      if(S.mode==="folder"){setStatus("Saving…",false,true);d=(await readDisk()).data;}else d=S.data;
+      if(change(d)===false)return false;
+      d.updated=nowISO();
+      if(S.mode==="folder")await writeDisk(d);
+    }
+    S.data=d;refreshLists();render();return true;
+  }catch(e){console.error(e);if(!authLost(e))toast("Not saved: "+e.message,6000);return false;}
+  finally{S.busy=false;setStatus();}
+}
+/* extra info is keyed by the file's path; if a file was moved to another PM folder, find it by name */
+function metaFor(f){
+  const r=S.data.records;const k=key(f.id);
+  if(r[k])return r[k];
+  const n=key(f.name);
+  for(const kk in r)if(r[kk].file&&key(r[kk].file)===n&&!S.files.some(x=>key(x.id)===kk))return r[kk];
+  return null;
+}
+const locsOf=f=>{const m=metaFor(f);return m&&Array.isArray(m.location)?m.location:[];};
+
+let lastCloudPoll=0;
+async function poll(){
+  if(S.mode==="cloud"&&!S.busy&&!document.hidden&&Date.now()-lastCloudPoll>25000){
+    lastCloudPoll=Date.now();
+    try{
+      const it=await gjson(itemPath(S.root,DATA_FILE)+"?$select=id,eTag");
+      if(it.eTag!==S.etag){const r=await gReadData();S.data=r.data;S.etag=r.etag;refreshLists();render();if(S.panel==="view")fillViewForm(true);}
+    }catch(e){authLost(e);}
+    if(Date.now()-S.lastScan>RESCAN_MS)scan(true);
+    return;
+  }
+  if(S.mode!=="folder"||S.busy||document.hidden)return;
+  try{
+    const fh=await S.dir.getFileHandle(DATA_FILE);const f=await fh.getFile();
+    if(f.lastModified!==S.lastMod){S.data=validate(JSON.parse(await f.text()));S.lastMod=f.lastModified;refreshLists();render();if(S.panel==="view")fillViewForm(true);}
+  }catch(e){}
+  if(Date.now()-S.lastScan>RESCAN_MS)scan(true);
+}
+
+/* ---------- connect ---------- */
+async function openFolder(dir){
+  S.dir=dir;S.mode="folder";
+  const r=await readDisk();S.data=r.data;S.lastMod=r.lastMod;
+  await kvSet("dir",dir);
+  showApp();await scan();
+  return true;
+}
+function showErr(msg){const e=$("#cErr");e.textContent=msg;e.hidden=false;}
+function saveName(){const n=norm($("#cName").value);if(n){lsSet("rl-user",n);setUserBtn();}}
+async function pickFolder(){
+  saveName();
+  if(!window.showDirectoryPicker){showErr("This browser can't open folders. Please open this file in Microsoft Edge or Google Chrome.");return;}
+  let dir;try{dir=await window.showDirectoryPicker({id:"receiving-folder",mode:"readwrite",startIn:"documents"});}catch(e){return;}
+  try{closePanel();await openFolder(dir);}catch(e){showErr("Couldn't open that folder: "+e.message);}
+}
+
+/* ---------- status ---------- */
+let statusT;
+function setStatus(msg,err,busy){
+  const dot=$("#sdot"),t=$("#stext");$("#status").hidden=false;
+  dot.className="dot"+(S.mode==="sample"?" sample":"")+(err?" err":"")+(busy?" busy":"");
+  clearTimeout(statusT);
+  if(msg){t.textContent=msg;if(!busy)statusT=setTimeout(()=>setStatus(),4500);return;}
+  if(S.mode==="sample"){t.textContent="Sample data · not saved";return;}
+  t.textContent=rootName()+" · "+S.files.length+" packing lists"+(S.mode==="cloud"?" · OneDrive":"");
+  t.title="Folder: "+rootName();
+}
+const rootName=()=>S.mode==="cloud"?(S.root?S.root.name:""):(S.dir?S.dir.name:"");
+
+function showApp(){
+  $("#vConnect").hidden=true;$("#vCloud").hidden=true;$("#work").hidden=false;
+  ["#bUser","#bExport","#bFolder"].forEach(s=>$(s).hidden=false);
+  $("#bRescan").hidden=S.mode!=="folder"&&S.mode!=="cloud";
+  $("#bSignOut").hidden=S.mode!=="cloud";
+  $("#sampleBanner").hidden=S.mode!=="sample";
+  setUserBtn();setStatus();closePanel();refreshLists();render();
+  setTimeout(()=>$("#q").focus(),50);
+}
+
+/* ---------- suggestion lists ---------- */
+function uniq(arr){const m=new Map();for(const v of arr){const n=norm(v);if(n&&!m.has(key(n)))m.set(key(n),n);}return [...m.values()].sort(natural);}
+function refreshLists(){
+  if(!S.data)return;
+  const used=[];for(const k in S.data.records)(S.data.records[k].location||[]).forEach(l=>used.push(l));
+  const opt=a=>a.map(v=>'<option value="'+esc(v)+'">').join("");
+  $("#locList").innerHTML=opt(uniq(used.concat(warehouseSpots())));
+  $("#jobList").innerHTML=opt(uniq(S.files.map(f=>f.job)));
+  $("#pmList").innerHTML=opt(uniq(S.files.map(f=>f.pm).filter(p=>p!==NO_PM)));
+  $("#shipList").innerHTML=opt(uniq(S.files.map(f=>f.shipper)));
+}
+
+/* ---------- search + results ---------- */
+function fieldsOf(f){const m=metaFor(f);return [f.job,f.shipper,f.pm,f.date?fmtDate(f.date)+" "+formatDate(f.date)+" "+MON[f.date.getMonth()]+" "+f.date.getFullYear():f.dateRaw,(m&&m.location||[]).join(" "),m&&m.notes||"",f.name];}
+/* time frame: "12m" = dated in the last 12 months (undated files count unless they sit in a year folder), "all", or "y2025" */
+function yearOf(f){return f.archive||(f.date?f.date.getFullYear():null);}
+function inRange(f){
+  const r=S.range;if(r==="all")return true;
+  if(r==="12m"){if(!f.date)return !f.archive;const c=new Date();c.setFullYear(c.getFullYear()-1);c.setHours(0,0,0,0);return f.date>=c;}
+  return yearOf(f)===+r.slice(1);
+}
+function matches(anyTime){
+  const toks=key($("#q").value).split(" ").filter(Boolean);
+  return S.files.filter(f=>{
+    if(!anyTime&&!inRange(f))return false;
+    if(S.pm!=="All"&&f.pm!==S.pm)return false;
+    if(S.job&&key(f.job)!==S.job)return false;
+    if(S.noLoc&&locsOf(f).length)return false;
+    if(!toks.length)return true;
+    const fl=fieldsOf(f);
+    return toks.every(t=>fl.some(v=>hasQ(v,t)));
+  });
+}
+function sorted(list){
+  const t=f=>f.date?f.date.getTime():-1;
+  if(S.sort==="old")return list.sort((a,b)=>(t(a)<0)-(t(b)<0)||t(a)-t(b)||natural(a.name,b.name));
+  if(S.sort==="job")return list.sort((a,b)=>natural(a.job,b.job)||t(b)-t(a));
+  return list.sort((a,b)=>t(b)-t(a)||natural(a.name,b.name));
+}
+function hl(text){
+  const toks=key($("#q").value).split(" ").filter(t=>t.length>1);
+  let h=esc(text);if(!toks.length)return h;
+  for(const t of toks){const rx=new RegExp("("+esc(t).replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")","ig");h=h.replace(/(<[^>]*>)|([^<]+)/g,(m,tag,txt)=>tag||txt.replace(rx,"<mark>$1</mark>"));}
+  return h;
+}
+function itemHTML(f){
+  const locs=locsOf(f);
+  const cal=f.date?'<span class="cal"><b>'+MON[f.date.getMonth()]+"</b><span>"+f.date.getDate()+"</span><i>"+f.date.getFullYear()+"</i></span>":'<span class="cal nodate"><b>Date</b><span>?</span></span>';
+  return '<button type="button" class="item'+(f.id===S.sel?" sel":"")+'" data-id="'+esc(f.id)+'">'+cal
+    +'<span class="j">'+hl(f.job||"(no job name)")+(f.ok?"":'<span class="odd" title="'+esc(f.name)+'">name not in usual format</span>')+"</span>"
+    +'<span class="r">'+(locs.length?locs.map(l=>'<span class="loc">'+hl(l)+"</span>").join(""):'<span class="loc none">no location</span>')+"</span>"
+    +'<span class="d">'+hl([f.shipper||"(no shipper)",f.pm].join(" · "))+(f.date?"":f.dateRaw?" · "+esc(f.dateRaw):"")+(f.archive?" · in "+f.archive+" folder":"")+"</span></button>";
+}
+function render(){
+  if(!S.data)return;
+  // PM buttons with counts (counts follow the search, not the PM/job buttons)
+  const savedPm=S.pm,savedJob=S.job;S.pm="All";S.job="";const all=matches();S.pm=savedPm;S.job=savedJob;
+  const cnt={};for(const f of all)cnt[f.pm]=(cnt[f.pm]||0)+1;
+  const pms=uniq(S.files.map(f=>f.pm));
+  if(S.pm!=="All"&&!pms.includes(S.pm)){S.pm="All";S.job="";}
+  const q0=$("#q").value.trim();
+  $("#pms").innerHTML='<button type="button" class="pmbtn'+(S.pm==="All"?" on":"")+'" data-pm="All">All <span class="n">'+all.length+"</span></button>"
+    +pms.map(p=>'<button type="button" class="pmbtn'+(S.pm===p?" on":"")+(q0&&!cnt[p]?" zero":"")+'" data-pm="'+esc(p)+'">'+esc(p)+' <span class="n">'+(cnt[p]||0)+"</span></button>").join("");
+  // Job buttons for the chosen PM
+  if(S.pm!=="All"){
+    const jc=new Map();for(const f of all)if(f.pm===S.pm){const k=key(f.job);if(!jc.has(k))jc.set(k,{name:f.job||"(no job name)",n:0});jc.get(k).n++;}
+    if(S.job&&!jc.has(S.job))S.job="";
+    const jobs=[...jc.entries()].sort((a,b)=>natural(a[1].name,b[1].name));
+    $("#jobsLbl").textContent=S.pm+"'s jobs";
+    $("#jobs").innerHTML='<button type="button" class="chip jobchip'+(!S.job?" on":"")+'" data-job="">All jobs <span class="n">'+jobs.reduce((s,j)=>s+j[1].n,0)+"</span></button>"
+      +jobs.map(([k,j])=>'<button type="button" class="chip jobchip'+(S.job===k?" on":"")+'" data-job="'+esc(k)+'">'+esc(j.name)+' <span class="n">'+j.n+"</span></button>").join("");
+    $("#jobsRow").hidden=false;
+  }else{S.job="";$("#jobsRow").hidden=true;}
+  // Time frame buttons: last 12 months, all years, then each year found in folder names or file dates
+  const years=[...new Set(S.files.map(yearOf).filter(Boolean))].sort((a,b)=>b-a);
+  if(/^y/.test(S.range)&&!years.includes(+S.range.slice(1)))S.range="12m";
+  $("#ranges").innerHTML=[["12m","Last 12 months"],["all","All years"]].concat(years.map(y=>["y"+y,String(y)])).map(([v,t])=>'<button type="button" class="chip rangechip'+(S.range===v?" on":"")+'" data-range="'+v+'">'+t+"</button>").join("");
+  const noLocN=S.files.filter(f=>inRange(f)&&!locsOf(f).length).length;
+  $("#noLocWrap").innerHTML='<button type="button" class="chip flag'+(S.noLoc?" on":"")+'" id="noLoc" title="Show only packing lists that don\'t have a location yet">No location yet <span class="n">'+noLocN+"</span></button>";
+
+  const list=sorted(matches());
+  const jobs=new Set(list.map(f=>key(f.job))).size;
+  const q=$("#q").value.trim();
+  const hidden=S.range==="all"?0:matches(true).length-list.length;
+  const showAll=hidden?' <a href="#" data-range="all">'+hidden+" more in other years: show all years</a>":"";
+  $("#count").innerHTML=S.files.length?list.length+" packing list"+(list.length===1?"":"s")+" · "+jobs+" job"+(jobs===1?"":"s")+(hidden?" ·":"")+showAll:"";
+  const out=$("#out");
+  if(!S.files.length){out.innerHTML='<div class="none">'+(S.scanning?"Reading folders…":"No packing lists found in this folder yet. Click <b>+ Log delivery</b> to add one, or check you picked the folder that holds the project-manager folders.")+"</div>";return;}
+  if(!list.length&&hidden){out.innerHTML='<div class="none">Nothing in this time frame'+(q?" matches “"+esc(q)+"”":"")+".<br><br>"+showAll.trim()+"</div>";return;}
+  if(!list.length){out.innerHTML='<div class="none">Nothing matches “'+esc(q)+'”'+(S.pm!=="All"?" for "+esc(S.pm)+'. <a href="#" data-pm="All">Search all PMs</a>':"")+". Try part of the job name, a shipper, or a date like <b>nov 2026</b>.</div>";return;}
+  const shown=list.slice(0,SHOW_MAX);
+  let h="";
+  if(S.sort==="job"){
+    let cur=null;
+    for(const f of shown){
+      if(key(f.job)!==cur){if(cur!==null)h+="</div>";cur=key(f.job);const n=list.filter(x=>key(x.job)===cur).length;h+='<div class="jobhead">'+hl(f.job||"(no job name)")+" <small>"+n+" deliver"+(n===1?"y":"ies")+'</small></div><div class="list" style="border-radius:0;border-width:0 0 1px">';}
+      h+=itemHTML(f);
+    }
+    h='<div class="list" style="gap:0">'+h+"</div></div>";
+  }else h='<div class="list">'+shown.map(itemHTML).join("")+"</div>";
+  if(list.length>SHOW_MAX)h+='<div class="none" style="margin-top:8px">Showing the first '+SHOW_MAX+". Type more to narrow it down.</div>";
+  out.innerHTML=h;
+}
+
+/* ---------- side panel ---------- */
+const fileById=id=>S.files.find(f=>f.id===id);
+function setDocURL(which,url){const k=which==="new"?"newUrl":"url";if(S[k])URL.revokeObjectURL(S[k]);S[k]=url;}
+function closePanel(){
+  S.panel=null;S.sel=null;$("#panel").hidden=true;setDocURL("view",null);setDocURL("new",null);S.newFile=null;
+  $("#doc").innerHTML="";$("#nDoc").innerHTML="";
+  if(S.data)render();
+}
+/* Phones can't show PDFs inside a page, so there the app draws the pages itself with pdf.js */
+const PDFJS="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
+const usePdfJs=()=>(window.matchMedia&&matchMedia("(pointer:coarse)").matches)||navigator.pdfViewerEnabled===false;
+let pdfJsLoading=null,drawToken=0;
+function loadPdfJs(){
+  if(window.pdfjsLib)return Promise.resolve();
+  if(!pdfJsLoading)pdfJsLoading=new Promise((res,rej)=>{const s=document.createElement("script");s.src=PDFJS+"pdf.min.js";
+    s.onload=()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS+"pdf.worker.min.js";res();};
+    s.onerror=()=>{pdfJsLoading=null;rej(new Error("Couldn't load the PDF viewer. Check the internet connection."));};document.head.appendChild(s);});
+  return pdfJsLoading;
+}
+async function drawPdf(box,blob,tok){
+  try{
+    await loadPdfJs();
+    const pdf=await window.pdfjsLib.getDocument({data:new Uint8Array(await blob.arrayBuffer())}).promise;
+    if(tok!==drawToken)return;
+    box.classList.add("flow");box.innerHTML='<div class="pages"></div>';const wrap=box.firstChild;
+    const cssW=Math.max(280,box.clientWidth-16),dpr=Math.min(window.devicePixelRatio||1,2.5);
+    for(let i=1;i<=Math.min(pdf.numPages,40);i++){
+      const page=await pdf.getPage(i);if(tok!==drawToken)return;
+      const vp=page.getViewport({scale:cssW/page.getViewport({scale:1}).width*dpr});
+      const c=document.createElement("canvas");c.width=Math.round(vp.width);c.height=Math.round(vp.height);wrap.appendChild(c);
+      await page.render({canvasContext:c.getContext("2d"),viewport:vp}).promise;
+    }
+  }catch(e){if(tok===drawToken){box.classList.remove("flow");box.innerHTML='<div class="msg">Couldn\'t show this PDF here: '+esc(e.message)+'<br><br>Use <b>Open in new tab</b> instead.</div>';}}
+}
+function showDoc(box,blob,name){
+  const url=URL.createObjectURL(blob);
+  box.classList.remove("flow");drawToken++;
+  if((/\.pdf$/i.test(name)||blob.type==="application/pdf")&&usePdfJs()){box.innerHTML='<div class="msg">Opening…</div>';drawPdf(box,blob,drawToken);}
+  else if(/\.pdf$/i.test(name)||blob.type==="application/pdf")box.innerHTML='<iframe title="Packing list" src="'+url+'#view=FitH"></iframe>';
+  else if(VIEW_IMG.test(name)||/^image\/(jpeg|png|gif|webp|bmp|svg)/.test(blob.type))box.innerHTML='<img alt="Packing list" src="'+url+'">';
+  else box.innerHTML='<div class="msg">Edge can\'t show this type of file here ('+esc((name.split(".").pop()||"").toUpperCase())+').<br><br>Use <b>Open in new tab</b> to open it. Tip: set the scanner to save as PDF.</div>';
+  return url;
+}
+async function openFile(id){
+  const f=fileById(id);if(!f)return;
+  S.panel="view";S.sel=id;$("#panel").hidden=false;$("#pView").hidden=false;$("#pNew").hidden=true;
+  $("#pTitle").textContent=f.job||f.name;
+  $("#vPath").textContent=(rootName()?rootName()+"\\":"")+f.path.concat(f.name).join("\\");
+  $("#vDet").innerHTML=[["Shipper",f.shipper||"—"],["Date received",f.date?fmtDate(f.date):(f.dateRaw||"—")],["Project manager",f.pm]].map(x=>'<div><div class="k">'+x[0]+'</div><div class="v">'+esc(x[1])+"</div></div>").join("");
+  fillViewForm();render();
+  const box=$("#doc");box.innerHTML='<div class="msg">Loading…</div>';setDocURL("view",null);
+  try{
+    const blob=f.blob||(f.g?await gDownload(f.g,f.name):await f.handle.getFile());
+    if(S.sel!==id)return;
+    setDocURL("view",showDoc(box,blob,f.name));
+  }catch(e){if(authLost(e))return;if(S.sel===id)box.innerHTML='<div class="msg">Couldn\'t open this file: '+esc(e.message)+'<br><br>If it\'s on OneDrive, it may still be downloading. Try again in a moment.</div>';}
+}
+function fillViewForm(keepEdits){
+  const f=fileById(S.sel);if(!f)return;
+  if(keepEdits&&document.activeElement&&$("#vForm").contains(document.activeElement))return;
+  const m=metaFor(f);
+  S.vLocs=m&&m.location?m.location.slice():[];
+  $("#vNotes").value=m&&m.notes||"";$("#vLocIn").value="";
+  renderChipsIn("v");
+  $("#vMeta").textContent=m&&m.updated?"Last changed "+fmtTime(m.updated)+(m.by?" by "+m.by:""):"";
+}
+async function saveView(e){
+  e.preventDefault();
+  const f=fileById(S.sel);if(!f)return;
+  addChip("v");
+  const locs=S.vLocs.slice(),notes=String($("#vNotes").value||"").trim(),who=userName();
+  const ok=await commit(d=>{const k=key(f.id);
+    Object.assign(d.records[k]=d.records[k]||{},{file:f.name,job:f.job,location:locs,notes,updated:nowISO(),by:who});
+    // drop the old entry if this file was moved from another folder
+    for(const kk in d.records)if(kk!==k&&d.records[kk].file&&key(d.records[kk].file)===key(f.name)&&!S.files.some(x=>key(x.id)===kk))delete d.records[kk];
+  });
+  if(ok){toast(locs.length?"Saved · "+locs.join(", "):"Saved");fillViewForm();}
+}
+
+/* location chip inputs ("v" = view panel, "n" = new delivery) */
+function renderChipsIn(w){
+  const box=$("#"+w+"Locs"),inp=$("#"+w+"LocIn"),arr=S[w+"Locs"];
+  box.querySelectorAll(".loc").forEach(x=>x.remove());
+  for(let i=0;i<arr.length;i++){const s=document.createElement("span");s.className="loc";s.innerHTML=esc(arr[i])+'<button type="button" aria-label="Remove '+esc(arr[i])+'" data-i="'+i+'">×</button>';box.insertBefore(s,inp);}
+  inp.placeholder=arr.length?"Add another spot":(w==="v"?"Type a spot, e.g. R2A3, S12B1, Floor 5 — press Enter":"Type a spot, e.g. R2A3 — press Enter");
+}
+function canonLoc(v){v=norm(v);if(/^[rs]\d+[a-z]\d+$/i.test(v))return v.toUpperCase();const hit=[...$("#locList").options].find(o=>key(o.value)===key(v));return hit?hit.value:v;}
+function addChip(w){
+  const inp=$("#"+w+"LocIn");const vals=inp.value.split(",").map(canonLoc).filter(Boolean);
+  if(!vals.length)return;
+  const arr=S[w+"Locs"];for(const v of vals)if(!arr.some(a=>key(a)===key(v)))arr.push(v);
+  inp.value="";renderChipsIn(w);if(w==="n")updateSaveAs();
+}
+function wireChips(w){
+  const box=$("#"+w+"Locs"),inp=$("#"+w+"LocIn");
+  box.addEventListener("click",e=>{const b=e.target.closest("button[data-i]");if(b){S[w+"Locs"].splice(+b.dataset.i,1);renderChipsIn(w);}inp.focus();});
+  inp.addEventListener("keydown",e=>{
+    if(e.key==="Enter"||e.key===","){if(inp.value.trim()){e.preventDefault();addChip(w);}}
+    else if(e.key==="Backspace"&&!inp.value&&S[w+"Locs"].length){S[w+"Locs"].pop();renderChipsIn(w);}
+  });
+  inp.addEventListener("change",()=>{if([...$("#locList").options].some(o=>o.value===inp.value))addChip(w);});
+  inp.addEventListener("blur",()=>addChip(w));
+}
+
+/* ---------- log a new delivery ---------- */
+function openNew(file){
+  S.panel="new";S.sel=null;$("#panel").hidden=false;$("#pView").hidden=true;$("#pNew").hidden=false;
+  $("#pTitle").textContent="Log a delivery";setDocURL("view",null);$("#doc").innerHTML="";
+  S.nLocs=[];renderChipsIn("n");
+  ["#nJob","#nPM","#nShip","#nNotes","#nLocIn"].forEach(s=>$(s).value="");
+  $("#nDate").value=isoDay(new Date());
+  setNewFile(file||null);render();updateSaveAs();
+  setTimeout(()=>(file?$("#nJob"):$("#nDrop")).focus(),30);
+}
+/* phone photos are big: shrink them to a sharp but sensible size before saving */
+async function shrinkPhoto(file){
+  if(!/^image\/(jpeg|png|webp)$/.test(file.type)||file.size<1500000||!window.createImageBitmap)return file;
+  try{
+    const bmp=await createImageBitmap(file);const sc=Math.min(1,2400/Math.max(bmp.width,bmp.height));
+    const c=document.createElement("canvas");c.width=Math.round(bmp.width*sc);c.height=Math.round(bmp.height*sc);
+    c.getContext("2d").drawImage(bmp,0,0,c.width,c.height);
+    const blob=await new Promise(r=>c.toBlob(r,"image/jpeg",0.85));
+    return blob&&blob.size<file.size?new File([blob],file.name.replace(/\.[^.]+$/,"")+".jpg",{type:"image/jpeg"}):file;
+  }catch(e){return file;}
+}
+async function pickNewFile(file){setNewFile(await shrinkPhoto(file));}
+function setNewFile(file){
+  S.newFile=file;setDocURL("new",null);
+  $("#nDrop").hidden=!!file;$("#nPicked").hidden=!file;$("#nDoc").hidden=!file;
+  if(file){$("#nPickedName").textContent=file.name+" · "+Math.max(1,Math.round(file.size/1024))+" KB";setDocURL("new",showDoc($("#nDoc"),file,file.name));
+    // If the scan was already named the usual way, fill the boxes from its name.
+    const p=parseName(file.name);if(p.ok){if(!$("#nJob").value)$("#nJob").value=p.job;if(!$("#nShip").value)$("#nShip").value=p.shipper;$("#nDate").value=isoDay(p.date);suggestPM();}
+  }else $("#nDoc").innerHTML="";
+  updateSaveAs();
+}
+const safe=s=>norm(String(s||"").replace(/[\\/:*?"<>|]/g," ").replace(/\s+-\s+/g," ")).replace(/[. ]+$/,"");
+function newName(){
+  const job=safe($("#nJob").value),ship=safe($("#nShip").value),dv=$("#nDate").value,pm=safe($("#nPM").value);
+  if(!job||!ship||!dv)return null;
+  const [y,m,d]=dv.split("-").map(Number);const ext=S.newFile?("."+(S.newFile.name.split(".").pop()||"pdf").toLowerCase()):".pdf";
+  return {pm,name:job+" - "+ship+" - "+formatDate(new Date(y,m-1,d),S.style)+ext};
+}
+function updateSaveAs(){
+  if(S.panel!=="new")return;
+  const n=newName();
+  $("#nSaveAs").textContent=n?(n.pm||"(pick a project manager)")+"\\"+n.name:"Fill in job name, shipper and date";
+  const w=$("#nWarn");let msg="";
+  const pm=key($("#nPM").value);
+  if(pm&&!S.files.some(f=>key(f.pm)===pm))msg="<b>New folder:</b> there's no folder called “"+esc(norm($("#nPM").value))+"” yet. Saving will create it.";
+  if(n&&S.files.some(f=>key(f.pm)===key(n.pm)&&key(f.name)===key(n.name)))msg=(msg?msg+"<br>":"")+"A packing list with this exact name already exists, so this one will get “(2)” on the end.";
+  w.innerHTML=msg;w.hidden=!msg;
+}
+function suggestPM(){
+  if(norm($("#nPM").value))return;
+  const j=key($("#nJob").value);if(!j)return;
+  const hits=S.files.filter(f=>key(f.job)===j&&f.pm!==NO_PM).sort((a,b)=>(b.date?b.date:0)-(a.date?a.date:0));
+  if(hits.length){$("#nPM").value=hits[0].pm;updateSaveAs();}
+}
+async function uniqueName(dir,name){
+  const dot=name.lastIndexOf("."),b=name.slice(0,dot),x=name.slice(dot);
+  for(let i=1;i<100;i++){const n=i===1?name:b+" ("+i+")"+x;try{await dir.getFileHandle(n);}catch(e){return n;}}
+  throw new Error("Too many files with that name.");
+}
+async function saveNew(e){
+  e.preventDefault();
+  if(!S.newFile){toast("Choose the scanned packing list first.");$("#nDrop").focus();return;}
+  addChip("n");
+  const n=newName();if(!n||!n.pm){toast("Fill in job name, project manager, shipper and date.");return;}
+  const btn=$("#nSave");btn.disabled=true;
+  try{
+    const who=userName(),locs=S.nLocs.slice(),notes=String($("#nNotes").value||"").trim();
+    let rec;
+    if(S.mode==="cloud"){
+      setStatus("Uploading…",false,true);
+      const folder=await gEnsureFolder(n.pm);
+      const dot=n.name.lastIndexOf("."),b=n.name.slice(0,dot),x=n.name.slice(dot);
+      let it=null,name=n.name;
+      for(let i=1;i<60&&!it;i++){
+        name=i===1?n.name:b+" ("+i+")"+x;
+        if(S.files.some(f=>f.path.length===1&&key(f.path[0])===key(folder.name)&&key(f.name)===key(name)))continue;
+        it=await gUpload(folder,name,S.newFile);
+      }
+      if(!it)throw new Error("Couldn't find a free file name.");
+      rec=makeRec([folder.name],it.name,null,null);rec.g={driveId:folder.driveId,id:it.id};rec.blob=S.newFile;
+      setStatus();
+    }else if(S.mode==="folder"){
+      const pmDir=await S.dir.getDirectoryHandle(n.pm,{create:true});
+      const name=await uniqueName(pmDir,n.name);
+      const fh=await pmDir.getFileHandle(name,{create:true});const w=await fh.createWritable();await w.write(S.newFile);await w.close();
+      rec=makeRec([pmDir.name],name,fh,null);
+    }else{
+      let name=n.name,i=2;while(S.files.some(f=>f.pm===n.pm&&key(f.name)===key(name)))name=n.name.replace(/(\.[^.]+)$/," ("+(i++)+")$1");
+      rec=makeRec([n.pm],name,null,S.newFile);
+    }
+    S.files.push(rec);afterFilesChanged();
+    await commit(d=>{d.records[key(rec.id)]={file:rec.name,job:rec.job,location:locs,notes,updated:nowISO(),by:who,logged:nowISO()};});
+    toast("Saved to "+rec.pm+"\\"+rec.name,4500);
+    $("#q").value="";openFile(rec.id);
+  }catch(err){console.error(err);setStatus();if(!authLost(err))toast("Not saved: "+err.message,6000);}
+  finally{btn.disabled=false;}
+}
+
+/* ---------- export ---------- */
+const csvCell=v=>{v=String(v==null?"":v);const f=/^[=+\-@]/.test(v);return /[",\n\r]/.test(v)||f?'"'+(f?"'":"")+v.replace(/"/g,'""')+'"':v;};
+function exportCSV(){
+  const rows=sorted(matches());
+  const head=["Job Name","Shipper","Date Received","Project Manager","Location","Notes","File"];
+  const txt="\ufeff"+[head.join(",")].concat(rows.map(f=>{const m=metaFor(f);return [f.job,f.shipper,f.date?isoDay(f.date):f.dateRaw,f.pm,(m&&m.location||[]).join(", "),m&&m.notes||"",f.path.concat(f.name).join("\\")].map(csvCell).join(",");})).join("\r\n");
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([txt],{type:"text/csv"}));a.download="receiving-"+isoDay(new Date())+".csv";
+  document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);
+  toast("Saved "+a.download+" ("+rows.length+" rows) to your Downloads folder");
+}
+
+/* ---------- sample data ---------- */
+function sampleSVG(job,ship,date,pm,i){
+  const items=[["KX21","\"F\" Anchor",40],["K289","\"T\" Anchor",24],["162-543","Shear Block",12],["SL-20","Stock Lengths 20'",36],["EC-6","Extended Cover",18],["AP-11","Assembly parts",6],["162-378","Shear Block",10]];
+  const pick=[0,1,2,3,4,5,6].filter(k=>(k+i)%3!==0).slice(0,4);
+  const rows=pick.map((k,r)=>{const y=420+r*38;return '<text x="60" y="'+y+'">'+(r+1)+'</text><text x="110" y="'+y+'" font-family="Consolas">'+items[k][0]+'</text><text x="260" y="'+y+'">'+esc(items[k][1])+'</text><text x="640" y="'+y+'" text-anchor="end">'+(items[k][2]+i)+'</text><line x1="50" x2="650" y1="'+(y+14)+'" y2="'+(y+14)+'" stroke="#ccc"/>';}).join("");
+  const s='<svg xmlns="http://www.w3.org/2000/svg" width="700" height="900" viewBox="0 0 700 900" font-family="Arial" font-size="17" fill="#222"><rect width="700" height="900" fill="#fbfaf6"/>'
+   +'<text x="50" y="80" font-size="34" font-weight="bold">PACKING LIST</text><text x="650" y="80" text-anchor="end" font-size="15">No. PL-'+(40210+i*37)+'</text>'
+   +'<line x1="50" x2="650" y1="100" y2="100" stroke="#222" stroke-width="2"/>'
+   +'<text x="50" y="150" font-size="13" fill="#666">SHIP TO</text><text x="50" y="175">Warehouse — Job: '+esc(job)+'</text><text x="50" y="200">Attn: '+esc(pm)+'</text>'
+   +'<text x="400" y="150" font-size="13" fill="#666">CARRIER</text><text x="400" y="175">'+esc(ship)+'</text>'
+   +'<text x="400" y="225" font-size="13" fill="#666">DATE</text><text x="400" y="250">'+fmtDate(date)+'</text>'
+   +'<text x="50" y="250" font-size="13" fill="#666">PO</text><text x="50" y="275">PO-'+(7700+i*13)+'</text>'
+   +'<rect x="50" y="365" width="600" height="34" fill="#e8e6df"/><text x="60" y="388" font-weight="bold">#</text><text x="110" y="388" font-weight="bold">Part</text><text x="260" y="388" font-weight="bold">Description</text><text x="640" y="388" text-anchor="end" font-weight="bold">Qty</text>'
+   +rows+'<text x="50" y="820" font-size="14" fill="#666">Received by: ______________________</text>'
+   +'<text x="600" y="830" font-size="40" fill="#c33" opacity=".55" transform="rotate(-12 600 830)" text-anchor="end">RECEIVED</text></svg>';
+  return new Blob([s],{type:"image/svg+xml"});
+}
+function sampleFiles(){
+  const pms=["Dave Collins","Maria Lopez","Tom Reilly"];
+  const jobs=[["Scituate",0],["Clinton",0],["Tri-County",1],["Whitman",1],["John Pierce",2],["IQ Center",2],["ELHS East Longmeadow",0],["Deerfield Academy",1]];
+  const ships=["Estes","UPS Freight","XPO","FedEx Freight","R+L Carriers","Customer truck"];
+  const locs=["R2A3","S12B1","Floor 5","R5A2","Outside","R7 Floor","S4C2","Steel Rack"];
+  const files=[],meta={};const base=new Date();
+  for(let i=0;i<26;i++){
+    const j=jobs[(i*5)%jobs.length],pm=pms[j[1]],sh=ships[(i*7)%ships.length];
+    const d=new Date(base.getFullYear(),base.getMonth(),base.getDate()-i*3-(i%4));
+    const name=j[0]+" - "+sh+" - "+formatDate(d)+".pdf".replace(".pdf",i%5===4?".jpg":".pdf");
+    const r=makeRec([pm],name,null,sampleSVG(j[0],sh,d,pm,i));files.push(r);
+    if(i%3!==1)meta[key(r.id)]={file:name,job:j[0],location:i%7===0?[locs[i%locs.length],locs[(i+3)%locs.length]]:[locs[i%locs.length]],notes:i%6===0?"1 skid, wrapped":"",updated:d.toISOString(),by:"Sample"};
+  }
+  // last year's year folders (both ways of nesting)
+  const old=[[["2025","Dave Collins"],"Scituate","Estes",new Date(2025,5,12)],[["2025","Maria Lopez"],"Tri-County","XPO",new Date(2025,2,3)],[["2025","Tom Reilly"],"John Pierce","UPS Freight",new Date(2025,11,18)],[["Dave Collins","2024"],"Clinton","R+L Carriers",new Date(2024,8,9)]];
+  for(const [p,job,sh,d] of old)files.push(makeRec(p,job+" - "+sh+" - "+formatDate(d)+".pdf",null,sampleSVG(job,sh,d,p.find(x=>!isYear(x)),files.length)));
+  files.push(makeRec(["Tom Reilly"],"Scan_20261102_0001.pdf",null,sampleSVG("Unknown","Unknown",base,"Tom Reilly",99)));
+  return {files,data:{app:"receiving-lookup",schema:1,updated:nowISO(),records:meta}};
+}
+
+/* ---------- events ---------- */
+$("#bPick").onclick=pickFolder;
+$("#bSample").onclick=()=>{saveName();const s=sampleFiles();S.mode="sample";S.files=s.files;S.data=s.data;showApp();afterFilesChanged();};
+$("#bFolder").onclick=()=>{if(S.mode==="sample"){location.reload();return;}if(S.mode==="cloud"){closePanel();showCloudPicker().catch(e=>{if(!authLost(e))toast(e.message,6000);});return;}pickFolder();};
+$("#bSignIn").onclick=()=>{saveName();signIn();};
+$("#bSignOut").onclick=()=>{if(confirm("Sign out on this device?"))signOut();};
+$("#gSignOut").onclick=signOut;
+$("#gCrumbs").addEventListener("click",e=>{const b=e.target.closest("[data-i]");if(b){G.stack.length=+b.dataset.i+1;renderPicker();}});
+$("#gList").addEventListener("click",e=>{const b=e.target.closest("[data-k]");if(!b)return;const k=G.kids[+b.dataset.k];G.stack.push(refOf(k,G.stack[G.stack.length-1]));renderPicker();});
+async function useCloudRoot(root){
+  $("#gErr").hidden=true;$("#gUse").disabled=true;
+  try{await openCloudRoot(root);}catch(e){if(!authLost(e)){$("#gErr").textContent="Couldn't open that folder: "+e.message;$("#gErr").hidden=false;}}
+  finally{$("#gUse").disabled=false;}
+}
+$("#gUse").onclick=()=>{const c=G.stack[G.stack.length-1];useCloudRoot({driveId:c.driveId,id:c.id,name:c.name});};
+$("#gLinkGo").onclick=async()=>{const v=$("#gLink").value.trim();if(!v)return;$("#gErr").hidden=true;
+  try{useCloudRoot(await gResolveLink(v));}catch(e){if(!authLost(e)){$("#gErr").textContent="Couldn't open that link: "+e.message;$("#gErr").hidden=false;}}};
+$("#bRescan").onclick=()=>scan();
+$("#bUser").onclick=()=>{const n=prompt("Your name (saved with locations and notes you add):",lsGet("rl-user")||lsGet("wl-user"));if(n!==null){lsSet("rl-user",norm(n));setUserBtn();}};
+$("#bExport").onclick=exportCSV;
+$("#q").addEventListener("input",render);
+$("#q").addEventListener("keydown",e=>{if(e.key==="Enter"){const l=sorted(matches());if(l.length)openFile(l[0].id);}});
+$("#sort").onchange=e=>{S.sort=e.target.value;render();};
+$("#pms").addEventListener("click",e=>{const b=e.target.closest("[data-pm]");if(b){S.pm=b.dataset.pm;S.job="";render();}});
+function setRange(v){S.range=v;lsSet("rl-range",v);render();}
+$("#ranges").addEventListener("click",e=>{const b=e.target.closest("[data-range]");if(b)setRange(b.dataset.range);});
+$("#count").addEventListener("click",e=>{const a=e.target.closest("[data-range]");if(a){e.preventDefault();setRange(a.dataset.range);}});
+$("#jobs").addEventListener("click",e=>{const b=e.target.closest("[data-job]");if(b){S.job=b.dataset.job;render();}});
+$("#noLocWrap").addEventListener("click",e=>{if(e.target.closest("#noLoc")){S.noLoc=!S.noLoc;render();}});
+$("#out").addEventListener("click",e=>{const r=e.target.closest("a[data-range]");if(r){e.preventDefault();setRange(r.dataset.range);return;}const a=e.target.closest("a[data-pm]");if(a){e.preventDefault();S.pm="All";render();return;}const b=e.target.closest("[data-id]");if(b)openFile(b.dataset.id);});
+$("#pClose").onclick=closePanel;
+$("#vOpen").onclick=()=>{if(S.url)window.open(S.url,"_blank");};
+$("#vForm").addEventListener("submit",saveView);
+wireChips("v");wireChips("n");
+$("#bNew").onclick=()=>openNew(null);
+$("#nDrop").onclick=()=>$("#nFile").click();
+$("#nDrop").onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();$("#nFile").click();}};
+$("#nChange").onclick=()=>$("#nFile").click();
+$("#nFile").onchange=e=>{const f=e.target.files[0];e.target.value="";if(f)pickNewFile(f);};
+$("#nCam").onchange=e=>{const f=e.target.files[0];e.target.value="";if(f)pickNewFile(f);};
+$("#nCamBtn").onclick=()=>$("#nCam").click();
+["#nJob","#nPM","#nShip","#nDate"].forEach(s=>$(s).addEventListener("input",updateSaveAs));
+$("#nJob").addEventListener("change",suggestPM);
+$("#nCancel").onclick=closePanel;
+$("#pNew").addEventListener("submit",saveNew);
+
+// drag a scanned file anywhere onto the window
+let dragN=0;
+const hasFiles=e=>e.dataTransfer&&[...e.dataTransfer.types].includes("Files");
+window.addEventListener("dragenter",e=>{if(!S.data||!hasFiles(e))return;dragN++;$("#dropAll").hidden=false;});
+window.addEventListener("dragleave",()=>{if(--dragN<=0){dragN=0;$("#dropAll").hidden=true;}});
+window.addEventListener("dragover",e=>{if(hasFiles(e))e.preventDefault();});
+window.addEventListener("drop",e=>{if(!hasFiles(e))return;e.preventDefault();dragN=0;$("#dropAll").hidden=true;const f=e.dataTransfer.files[0];if(!f||!S.data)return;
+  if(!DOC_RX.test(f.name)){toast("That isn't a PDF or picture.");return;}
+  if(S.panel==="new")pickNewFile(f);else{openNew(null);pickNewFile(f);}});
+
+document.addEventListener("keydown",e=>{
+  const typing=/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+  if(e.key==="/"&&!typing&&S.data){e.preventDefault();$("#q").focus();$("#q").select();}
+  if(e.key==="Escape"&&S.panel)closePanel();
+});
+setInterval(poll,POLL_MS);
+window.addEventListener("focus",poll);
+document.addEventListener("visibilitychange",poll);
+
+/* ---------- install as an app ---------- */
+const standalone=()=>(window.matchMedia&&matchMedia("(display-mode: standalone)").matches)||navigator.standalone===true;
+let installEvt=null;
+window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installEvt=e;if(!standalone())$("#bInstall").hidden=false;});
+window.addEventListener("appinstalled",()=>{installEvt=null;$("#bInstall").hidden=true;toast("Installed. Open Receiving Lookup from your Start menu or home screen.",5000);});
+$("#bInstall").onclick=async()=>{if(!installEvt)return;installEvt.prompt();try{await installEvt.userChoice;}catch(e){}installEvt=null;$("#bInstall").hidden=true;};
+if(/iPhone|iPad|iPod/.test(navigator.userAgent)&&!standalone()&&location.protocol==="https:"&&!lsGet("rl-iostip"))$("#iosTip").hidden=false;
+$("#iosTipX").onclick=()=>{$("#iosTip").hidden=true;lsSet("rl-iostip","1");};
+if("serviceWorker" in navigator&&/^https?:$/.test(location.protocol))navigator.serviceWorker.register("sw.js").catch(e=>console.warn("Service worker:",e));
+
+/* for testing: lets a test open a folder or a pretend OneDrive without the pickers */
+window.ReceivingLookup={openFolder,openCloudRoot,showCloudPicker,_setTokens:t=>{T=t;}};
+
+/* ---------- start ---------- */
+(async function init(){
+  $("#cName").value=lsGet("rl-user")||lsGet("wl-user");
+  const touch=window.matchMedia&&matchMedia("(pointer:coarse)").matches;
+  if(touch){$("#nCamBtn").hidden=false;$("#nDropTitle").textContent="Or choose a file";$("#nDropSub").textContent="a PDF or picture already on the phone";}
+  const canFolder=!!window.showDirectoryPicker;
+  // Microsoft sign-in (phone + PC)
+  if(cloudReady()){
+    $("#bSignIn").hidden=false;$("#cloudIntro").hidden=false;
+    $("#bPick").className="btn";$("#bPick").textContent="Choose folder on this PC";
+    if(!canFolder){$("#bPick").hidden=true;$("#pcSteps").hidden=true;$("#pcOr").hidden=true;}
+    try{
+      if(await finishSignIn()||loadTokens()){$("#vConnect").hidden=true;await startCloud();return;}
+    }catch(e){
+      $("#vConnect").hidden=false;$("#vCloud").hidden=true;
+      if(e instanceof NeedSignIn)showErr("Please sign in again.");else showErr("Microsoft sign-in: "+e.message);
+    }
+  }else if(CONFIG.clientId){
+    const n=$("#cloudNote");n.hidden=false;n.textContent="Microsoft sign-in only works when the app is opened from its web address (https://…), not from a file.";
+  }
+  if(!canFolder){
+    $("#bPick").hidden=true;$("#pcSteps").hidden=true;
+    if(!cloudReady())showErr("This browser can't open folders. On a PC, open this file in Microsoft Edge or Google Chrome. On a phone, open the app from its web address and sign in with Microsoft. You can still look around with sample data.");
+    return;
+  }
+  const dir=await kvGet("dir");
+  if(dir&&dir.queryPermission){
+    try{if(await dir.queryPermission({mode:"readwrite"})==="granted"){await openFolder(dir);return;}}
+    catch(e){showErr("Couldn't open the saved folder: "+e.message);}
+    const b=$("#bReconnect");b.hidden=false;b.textContent="Open "+dir.name;
+    $("#bPick").className="btn";$("#bPick").textContent="Choose a different folder";
+    b.onclick=async()=>{saveName();try{if(await dir.requestPermission({mode:"readwrite"})==="granted")await openFolder(dir);}catch(e){showErr("Couldn't open "+dir.name+": "+e.message+". Try Choose a different folder.");}};
+  }
+})();
+})();
+</script>
+</body>
+</html>
